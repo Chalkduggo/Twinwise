@@ -11,7 +11,7 @@ Two modes:
   review.
 
 Digit runs of 3 or more (except years) are always replaced with a stable fake of
-the same shape, so ``99001 - PPV for Macon`` -> ``10001 - PPV for Region 1``.
+the same shape, so ``51001 - PPV for Aldermoor`` -> ``10001 - PPV for Region 1``.
 """
 from __future__ import annotations
 

@@ -36,14 +36,14 @@ jobs:
         if: runner.os == 'Windows'
         run: >
           pyinstaller --noconfirm --onefile --name Twinwise --icon assets/twinwise.ico
-          --add-data "twinwise/ui;twinwise/ui" --collect-submodules uvicorn
+          --add-data "twinwise/ui;twinwise/ui" --collect-submodules uvicorn --collect-submodules cryptography
           --hidden-import python_multipart --hidden-import multipart twinwise_launcher.py
 
       - name: Build (macOS / Linux)
         if: runner.os != 'Windows'
         run: >
           pyinstaller --noconfirm --onefile --name Twinwise
-          --add-data "twinwise/ui:twinwise/ui" --collect-submodules uvicorn
+          --add-data "twinwise/ui:twinwise/ui" --collect-submodules uvicorn --collect-submodules cryptography
           --hidden-import python_multipart --hidden-import multipart twinwise_launcher.py
 
       - name: Smoke test (Windows)

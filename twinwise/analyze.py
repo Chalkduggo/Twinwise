@@ -241,7 +241,7 @@ def _role(header: str, kinds: list[str], values: list, a: SheetAnalysis) -> str:
 
 
 def _find_labels(a: SheetAnalysis) -> None:
-    """Key/value pairs above (or without) a table: 'Vendor Number | 228226'."""
+    """Key/value pairs above (or without) a table: 'Vendor Number | 418207'."""
     sh = a.sheet
     limit = a.header_row - 1 if a.header_row else sh.max_row
     for r in range(1, limit + 1):

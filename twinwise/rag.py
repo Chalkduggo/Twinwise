@@ -88,7 +88,8 @@ def build(ft: FileTwin) -> tuple[str, list[dict]]:
     md.append(f"# Data card: {fname}\n")
     md.append("> This is a **synthetic twin** created by Twinwise. Names, IDs and codes are labels "
               "(e.g. *Region 1*, *VENDOR 1*); numbers are changed but keep the file's structure — "
-              "totals and formulas still add up, and comparisons inside a column stay meaningful. "
+              "totals and formulas still add up, and trends and broad comparisons inside a column stay meaningful. "
+              "Rows may carry a small hidden variation, so two rows with nearly equal values can swap order. "
               "Do not treat any figure as a real value.\n")
 
     for si, st in enumerate(ft.sheets):

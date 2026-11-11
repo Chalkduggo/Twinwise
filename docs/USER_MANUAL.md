@@ -1,6 +1,6 @@
 # Twinwise User Manual
 
-**Version 0.2.0** · Developed and maintained by LoopWise · Created by Suman Mondal
+**Version 0.3.0** · Developed and maintained by LoopWise · Created by Suman Mondal
 
 This manual is the complete reference for Twinwise. For a quick start, see the [User Guide](USER_GUIDE.md) or the 98-second video.
 
@@ -142,9 +142,9 @@ The second header row in the grid shows what was found for each column, for exam
 | Data | Example | Becomes |
 |---|---|---|
 | Names in name columns (Partner, Vendor, Channel, Title, City, State, System, Person…) | `Lantern Channel` | `Title 001` |
-| Codes inside names | `99126 - PPV CLU for New Orleans` | `10002 - PPV RWM for Region 2` |
-| IDs and codes (Vendor Number, System ID, UBEN, Provider Code…) | `E000105-12` | `B227380-03` (same shape) |
-| Names inside headings and notes | `Northwind Cable PPV/VOD Activity Report` | `Company 1 PPV/VOD Activity Report` |
+| Codes inside names | `51126 - PPV HD for Port Selwyn` | `10002 - PPV RWM for Region 2` |
+| IDs and codes (Vendor Number, System ID, Ref Code, Provider Code…) | `E000105-12` | `B227380-03` (same shape) |
+| Names inside headings and notes | `Northwind Cable PPV Activity Report` | `Company 1 PPV Activity Report` |
 | People and signatures | `Prepared by: Maya Fernandes` | `Prepared by: Name 4` |
 | Emails, web links | `royalties@harbor…` | `user1@example.com` |
 | State codes | `OR`, `IN`, `CO` | `REGION 7` |
@@ -163,8 +163,8 @@ Pick the mode in **Summary → How numbers change**.
 
 | Mode | What happens | Totals add up? | Best for |
 |---|---|---|---|
-| **Consistent** (default) | Each column is multiplied by its own hidden factor. Calculated columns and totals are then recalculated from the masked values. | Yes, exactly | Asking AI to analyse the data |
-| **One hidden factor** | Every amount is multiplied by the same factor. | Yes | When ratios between columns must stay exact |
+| **Consistent** (default) | Each column is multiplied by its own hidden factor and each row by a small hidden variation. Calculated columns and totals are then recalculated from the masked values. | Yes, exactly | Asking AI to analyse the data |
+| **One hidden factor** | Every amount is multiplied by the same factor. One known real figure reveals all the others. | Yes | When ratios must stay exact and the reader knows none of the real figures |
 | **Random** | Each number gets independent noise. | No | Maximum privacy, layout-only questions |
 
 **Details:**
@@ -174,6 +174,12 @@ Pick the mode in **Summary → How numbers change**.
 - **Percentages** change gently and stay between 0 and 100.
 - **Number formats are kept**: `$1,234.56`, `55%`, `(120.00)`.
 - **Stable factors** (on by default): the same column gets the same hidden factor every month, so month-to-month changes (+8%) stay true. Turn this off for maximum privacy.
+- **Row variation** (Consistent mode; Off, ±5% default, ±10%, ±20%): every row gets its own small hidden change on top of the column factor. Without it, anyone who knows one real figure can divide it by the twin figure and work out the whole column.
+  - The same row gets the same variation in every count and amount column, so ratios inside a row (revenue per subscriber) stay true.
+  - With stable factors on, a row keeps its variation every month, so each row's trend stays true.
+  - Prices and percentages vary by value, not by row, so equal prices stay equal.
+  - Totals are recalculated after the variation and still add up exactly.
+  - Two rows with nearly equal values may swap order. Column totals shift by a little less than the variation.
 
 ---
 
@@ -223,7 +229,8 @@ The check runs on the **saved files**, not on the plan.
 | Every changed number is checked to make sure it doesn't still hold its real value | Must be **0 found** |
 | File and sheet names are checked for any word from a replaced name | Must be **0 found** |
 | The AI context files (section 10) are searched the same way | Must be **0 found** |
-| Comments, headers/footers and author details | Removed |
+| Every part inside the saved Excel file is searched, including parts you can't see in Excel | Must be **0 found** |
+| Pivot tables, charts, images, hyperlinks, comments, drop-down lists, external links, defined names, headers/footers, author details, macros | Removed, and listed under *Removed from the twin* |
 
 If anything is found, **export is blocked** and the exact cell is listed.
 
@@ -233,6 +240,12 @@ If anything is found, **export is blocked** and the exact cell is listed.
 - **Percentages kept as-is:** contract terms such as a revenue split can identify a deal.
 - **Kept text you may want to glance at:** capitalised words that were kept.
 - **Cells masked without your review:** they're safe, but reviewing them teaches Twinwise.
+- **One hidden factor / row variation off:** one known real figure reveals the others.
+- **Same hidden factors every month:** good for trends; turn off for one-off sharing.
+
+**Why parts are removed.** Excel stores a copy of the source data inside every pivot table and the plotted values and labels inside every chart. Images are often logos. Masking the cells does not change these copies, so Twinwise removes them. Macro-enabled files (`.xlsm`) are saved as `.xlsx` twins without the macros. If you need a chart, rebuild it from the twin.
+
+**Key file password.** The safety check page has a password box for the key file. With a password the key file is encrypted and the report no longer lists the original file names. If library protection is on (section 14.3), that password is used unless you type another.
 
 ---
 
@@ -245,7 +258,7 @@ If anything is found, **export is blocked** and the exact cell is listed.
 | `…_TWIN.xlsx` / `.csv` | ✅ Yes | The twin |
 | `…_TWIN_CONTEXT.md` | ✅ Yes | A data card for AI: what each column means, formulas in plain words, totals, summary figures |
 | `…_TWIN_chunks.jsonl` | ✅ Yes | Ready-made chunks for RAG / vector databases |
-| `twin-key_<date>.json` | ❌ **Never** | Private key linking fake values to real ones |
+| `twin-key_<date>.json` | ❌ **Never** | Private key linking fake values to real ones. Encrypted if you set a password |
 | `twin-report_<date>.json` | Internal | Results of every check, for your records |
 
 The default folder is `Twinwise/exports/<date_time>` in your home folder. Use **Open folder** to go straight there.
@@ -291,7 +304,7 @@ Because chunks come only from the twin and are leak-tested, **no real value ever
 ![Restore](screenshots/11-restore.png)
 
 1. Open **Restore AI answer**.
-2. Choose the matching `twin-key_….json`.
+2. Choose the matching `twin-key_….json`. If it is password-protected, a password box appears.
 3. Paste the AI's answer, then click **Restore real names**.
 
 | What | Restored? |
@@ -299,7 +312,7 @@ Because chunks come only from the twin and are leak-tested, **no real value ever
 | Name labels (`Region 4`, `VENDOR 1`, `Title 001`) | ✅ Always |
 | IDs and codes | ✅ Always |
 | Numbers that appear in the twin | ✅ Exactly |
-| Numbers the AI calculated (sums, averages, growth) | ⚠️ Not exactly. Percent changes and rankings stay valid in Consistent mode |
+| Numbers the AI calculated (sums, averages, growth) | ⚠️ Not exactly. Trends and broad rankings stay valid in Consistent mode; rows with nearly equal values may swap order |
 
 ---
 
@@ -329,6 +342,19 @@ All learning is stored in the `.twinwise` folder in your home directory. You can
 
 ![Name library](screenshots/14-names.png)
 
+### 14.3 Password protection
+
+![Security](screenshots/15-security.png)
+
+Open **Security** and choose a password of at least 8 characters (a long passphrase is better).
+
+- `names.json`, `ids.json`, `factors.json` and `history.jsonl` are replaced by one encrypted file, `library.enc` (AES-256-GCM; the key is derived from your password with scrypt).
+- Twinwise asks for the password each time it starts. **Lock now** locks it without closing.
+- New key files are encrypted with the same password unless you type a different one at export.
+- You can change the password or turn protection off on the same page; both need the current password.
+- Templates and safe words stay as plain files. They hold headings and rules, not data values.
+- **There is no recovery.** If the password is lost, delete `library.enc` to start an empty library. Key files encrypted with the lost password cannot be opened.
+
 ---
 
 ## 15. Command line reference
@@ -342,10 +368,13 @@ All learning is stored in the `.twinwise` folder in your home directory. You can
 | `   --no-stable` | New hidden factors every run |
 | `   --no-learn` | Don't save templates or names |
 | `   --no-context` | Skip the AI context and RAG files |
-| `twinwise restore --key KEY [FILE]` | Restore an AI answer (reads from stdin if no file is given) |
+| `   --variation 0 \| 0.05 \| 0.1 \| 0.2` | Row variation in consistent mode (default 0.05) |
+| `   --key-password PW` | Encrypt the key file (or set `TWINWISE_KEY_PASSWORD`) |
+| `twinwise restore --key KEY [--password PW] [FILE]` | Restore an AI answer (reads from stdin if no file is given) |
+| `twinwise protect [--off]` | Turn library password protection on or off |
 | `twinwise demo [-o DIR]` | Write made-up demo files |
 
-`twinwise twin` exits with code **2** if the safety check finds a leak, so scripts can stop safely.
+`twinwise twin` exits with code **2** if the safety check finds a leak, so scripts can stop safely. When the library is protected, commands ask for the password, or read it from `TWINWISE_PASSWORD`.
 
 ---
 
@@ -355,7 +384,8 @@ All learning is stored in the `.twinwise` folder in your home directory. You can
 - There's no telemetry, no analytics and no network calls.
 - Uploaded files are copied to a temporary folder for the session. Exports go only where you choose.
 - Archives are unpacked safely: paths inside a ZIP are ignored, so a file can't escape the folder.
-- The key file and the library contain real values. Protect them like the original data.
+- The key file and the library contain real values. Turn on password protection (section 14.3) and protect them like the original data.
+- Twinwise does pseudonymisation, not anonymisation. The [threat model](THREAT_MODEL.md) lists exactly what a twin does and doesn't protect.
 
 ---
 
@@ -365,6 +395,9 @@ All learning is stored in the `.twinwise` folder in your home directory. You can
 - Formulas in Excel files are kept as formulas. Excel recalculates them from masked inputs, and cached results aren't stored.
 - Totals that Twinwise can't link to their rows (for example a subtotal row with no "Total" label) are scaled rather than recalculated.
 - Very small groups can still hint at a real customer, even when masked.
+- Someone who knows one real figure can estimate others in the same column (to within about ±10% at the default row variation). Someone who knows your business can guess a label from its size.
+- Charts, pivot tables and images are removed from the twin, not rebuilt. Dates are kept as they are.
+- The review table shows 400 rows at a time; use the arrows or **Next to review** to move.
 - Not yet supported: `.xls`, PDF, images, Word documents.
 - Downloads are for Windows, Apple Silicon Macs and x86-64 Linux. Intel Macs: run from source.
 

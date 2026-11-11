@@ -10,13 +10,16 @@ Layout of the library folder (default ``~/.twinwise``; override with the
     templates/*.json    saved layouts with your column decisions
     history.jsonl       one line per exported twin (local audit trail)
 
-All files are plain text / JSON so they are easy to inspect, back up or share
-with a teammate by hand.
+With library protection switched on, the files that hold real values (names,
+IDs, factors and history) are replaced by one password-encrypted file,
+``library.enc``. Safe words and templates stay as plain files: they hold
+headings and your column rules, not data values.
 """
 from __future__ import annotations
 
 import json
 import os
+import secrets
 import random
 import re
 import string
@@ -25,7 +28,55 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
+from . import crypto
+from .crypto import WrongPassword
+
 _LOCK = threading.RLock()
+_PASSWORD: str | None = None          # held in memory only while Twinwise runs
+ENC_FILE = "library.enc"
+PLAIN_FILES = ("names.json", "ids.json", "factors.json", "history.jsonl")
+
+
+class LibraryLocked(Exception):
+    """The library is password-protected and has not been unlocked in this session."""
+
+
+def is_protected(home: Path | str | None = None) -> bool:
+    return (Path(home).expanduser() if home else default_home()).joinpath(ENC_FILE).exists()
+
+
+def is_unlocked() -> bool:
+    return _PASSWORD is not None
+
+
+def lock() -> None:
+    global _PASSWORD
+    _PASSWORD = None
+    crypto.forget_keys()
+
+
+def current_password() -> str | None:
+    return _PASSWORD
+
+
+def unlock(password: str, home: Path | str | None = None) -> None:
+    """Check ``password`` against the protected library and remember it for this session."""
+    global _PASSWORD
+    h = Path(home).expanduser() if home else default_home()
+    env = json.loads((h / ENC_FILE).read_text(encoding="utf-8"))
+    crypto.decrypt(env, password)          # raises WrongPassword
+    _PASSWORD = password
+
+
+def set_protection(new_password: str | None, home: Path | str | None = None) -> None:
+    """Turn protection on (or change the password) with ``new_password``; turn it off with ``None``."""
+    global _PASSWORD
+    lib = Library.load(home)               # needs to be unlocked if currently protected
+    if new_password:
+        crypto.check_password(new_password)
+    _PASSWORD = new_password or None
+    lib._kdf_salt = None
+    lib.save()
 
 
 def default_home() -> Path:
@@ -61,6 +112,10 @@ class Library:
     ids: dict[str, str] = field(default_factory=dict)          # real -> fake
     factors: dict[str, float] = field(default_factory=dict)    # norm(column name) -> factor
     counters: dict[str, int] = field(default_factory=dict)     # category -> last number used
+    salt: str = ""                                             # secret used for per-row variation
+    protected: bool = False
+    _history: list = field(default_factory=list)               # used only when protected
+    _kdf_salt: bytes | None = None
 
     # ---------- persistence ----------
     @classmethod
@@ -70,11 +125,26 @@ class Library:
             sw = lib.home / "safe_words.txt"
             if sw.exists():
                 lib.safe_words = {_norm(l) for l in sw.read_text(encoding="utf-8").splitlines() if l.strip() and not l.startswith("#")}
-            data = _read_json(lib.home / "names.json", {})
-            lib.names = data.get("names", {})
-            lib.counters = data.get("counters", {})
-            lib.ids = _read_json(lib.home / "ids.json", {})
-            lib.factors = _read_json(lib.home / "factors.json", {})
+            enc = lib.home / ENC_FILE
+            if enc.exists():
+                if _PASSWORD is None:
+                    raise LibraryLocked("The library is password-protected. Unlock it first.")
+                env = json.loads(enc.read_text(encoding="utf-8"))
+                data = json.loads(crypto.decrypt(env, _PASSWORD).decode("utf-8"))
+                lib._kdf_salt = crypto.envelope_salt(env)
+                lib.protected = True
+                lib.names, lib.counters = data.get("names", {}), data.get("counters", {})
+                lib.ids, lib.factors = data.get("ids", {}), data.get("factors", {})
+                lib.salt, lib._history = data.get("salt", ""), data.get("history", [])
+            else:
+                data = _read_json(lib.home / "names.json", {})
+                lib.names = data.get("names", {})
+                lib.counters = data.get("counters", {})
+                lib.salt = data.get("salt", "")
+                lib.ids = _read_json(lib.home / "ids.json", {})
+                lib.factors = _read_json(lib.home / "factors.json", {})
+            if not lib.salt:
+                lib.salt = secrets.token_hex(16)
         return lib
 
     def save(self) -> None:
@@ -82,9 +152,36 @@ class Library:
             self.home.mkdir(parents=True, exist_ok=True)
             lines = ["# Twinwise safe words - text on this list is never masked", *sorted(self.safe_words)]
             (self.home / "safe_words.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
-            _write_json(self.home / "names.json", {"names": self.names, "counters": self.counters})
-            _write_json(self.home / "ids.json", self.ids)
-            _write_json(self.home / "factors.json", self.factors)
+            if _PASSWORD:
+                if not self.protected:          # switching protection on: carry the plain history over
+                    self._history = self._plain_history()
+                payload = {"names": self.names, "counters": self.counters, "ids": self.ids, "factors": self.factors,
+                           "salt": self.salt, "history": self._history}
+                env = crypto.encrypt(json.dumps(payload, ensure_ascii=False).encode("utf-8"), _PASSWORD, "library",
+                                     salt=self._kdf_salt)
+                self._kdf_salt = crypto.envelope_salt(env)
+                tmp = self.home / (ENC_FILE + ".tmp")
+                tmp.write_text(crypto.dumps(env), encoding="utf-8")
+                tmp.replace(self.home / ENC_FILE)
+                for name in PLAIN_FILES:
+                    _wipe(self.home / name)
+                self.protected = True
+            else:
+                _write_json(self.home / "names.json", {"names": self.names, "counters": self.counters, "salt": self.salt})
+                _write_json(self.home / "ids.json", self.ids)
+                _write_json(self.home / "factors.json", self.factors)
+                if self.protected:              # switching protection off: write the history back as a plain file
+                    with open(self.home / "history.jsonl", "w", encoding="utf-8") as f:
+                        for e in self._history:
+                            f.write(json.dumps(e, ensure_ascii=False) + "\n")
+                    (self.home / ENC_FILE).unlink(missing_ok=True)
+                    self.protected = False
+
+    def _plain_history(self) -> list:
+        p = self.home / "history.jsonl"
+        if not p.exists():
+            return []
+        return [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines() if l.strip()]
 
     # ---------- safe words ----------
     def is_safe(self, text: str) -> bool:
@@ -202,15 +299,30 @@ class Library:
         with _LOCK:
             self.home.mkdir(parents=True, exist_ok=True)
             entry = {"time": _now(), **entry}
+            if self.protected:
+                self._history.append(entry)
+                self.save()
+                return
             with open(self.home / "history.jsonl", "a", encoding="utf-8") as f:
                 f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
     def history(self, limit: int = 200) -> list[dict]:
-        p = self.home / "history.jsonl"
-        if not p.exists():
-            return []
-        rows = [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines() if l.strip()]
+        rows = self._history if self.protected else self._plain_history()
         return rows[-limit:][::-1]
+
+
+def _wipe(path: Path) -> None:
+    """Overwrite then delete a plain file that held real values (best effort)."""
+    try:
+        if path.exists():
+            size = path.stat().st_size
+            with open(path, "r+b") as f:
+                f.write(b"\0" * size)
+                f.flush()
+                os.fsync(f.fileno())
+            path.unlink()
+    except OSError:
+        path.unlink(missing_ok=True)
 
 
 def _letters(n: int) -> str:

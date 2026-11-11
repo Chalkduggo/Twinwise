@@ -1,6 +1,7 @@
 """Building the twin of one file."""
 from __future__ import annotations
 
+import hashlib
 import random
 import re
 from dataclasses import dataclass, field
@@ -20,9 +21,11 @@ class Settings:
     mode: str = "consistent"       # consistent | scale | random
     price_points: bool = True      # 3.64 -> 3.99 for price columns
     stable_factors: bool = True    # same hidden factor per column name across files and months
+    variation: float = 0.05        # extra hidden change per row (0, 0.05, 0.10, 0.20), consistent mode only
 
     def to_dict(self):
-        return {"mode": self.mode, "price_points": self.price_points, "stable_factors": self.stable_factors}
+        return {"mode": self.mode, "price_points": self.price_points, "stable_factors": self.stable_factors,
+                "variation": self.variation}
 
     @classmethod
     def from_dict(cls, d: dict | None):
@@ -33,6 +36,11 @@ class Settings:
         for k in ("price_points", "stable_factors"):
             if k in d:
                 setattr(s, k, bool(d[k]))
+        if "variation" in d:
+            try:
+                s.variation = min(max(float(d["variation"]), 0.0), 0.25)
+            except (TypeError, ValueError):
+                pass
         return s
 
 
@@ -225,7 +233,8 @@ def build_file_twin(doc: Document, analyses: list[SheetAnalysis], lib: Library, 
     stem, dot, ext = doc.path.name.rpartition(".")
     fres = mask_text(_flag_name_words(stem.replace("_", " "), ft), lib, random.Random(f"{seed}-name"))
     record(fres)
-    ft.new_filename = (fres.text if fres.changed else stem.replace("_", " ")).strip() + "_TWIN." + ext.lower()
+    out_ext = "xlsx" if ext.lower() == "xlsm" else ext.lower()     # macros are removed, so the twin is a plain .xlsx
+    ft.new_filename = (fres.text if fres.changed else stem.replace("_", " ")).strip() + "_TWIN." + out_ext
     ft.new_filename = re.sub(r'[\\/:*?"<>|\n\r\t]+', " ", ft.new_filename)
     return ft
 
@@ -279,6 +288,29 @@ def _mask_numbers(st: SheetTwin, a: SheetAnalysis, cells, lib: Library, rng: ran
                 factors[k] = lib.factor_for(k, rng, settings.stable_factors)
         return factors[k]
 
+    # Per-row variation (consistent mode). Each row gets its own small hidden multiplier on top of the
+    # column factor, so knowing one real figure no longer reveals the others exactly. The multiplier is
+    # tied to the row's names and IDs, so the same partner/region gets the same one every month and
+    # row-level trends stay exact. Prices and percentages vary by value instead, so a column where every
+    # row has the same price or split keeps one value.
+    amount = settings.variation if settings.mode == "consistent" else 0.0
+    vsalt = lib.salt if settings.stable_factors and lib.salt else f"job-{rng.random()}"
+    ident_cols = [c for c, ro in st.roles.items() if ro.get("role") in ("entity", "id") and ro.get("action") != "keep"]
+    row_ident: dict[int, str] = {}
+
+    def variation(r: int, c: int, role: str, fkey: str, val: float) -> float:
+        if amount <= 0 or r in a.total_rows:
+            return 1.0
+        if role in ("price", "percent") or r <= a.header_row:
+            ident = f"{role}|{fkey}|{val!r}"
+        else:
+            if r not in row_ident:
+                row_ident[r] = "|".join(str(sh.get(r, ic)).strip().lower() for ic in ident_cols if sh.get(r, ic) is not None)
+            ident = f"row|{row_ident[r]}" if row_ident[r] else f"val|{fkey}|{val!r}"
+        h = hashlib.sha256(f"{vsalt}|{ident}".encode("utf-8")).digest()
+        u = int.from_bytes(h[:8], "big") / 2 ** 64
+        return 1.0 + (2 * u - 1) * amount
+
     for r, c, role, fkey in cells:
         v = sh.get(r, c)
         if is_number(v):
@@ -291,7 +323,7 @@ def _mask_numbers(st: SheetTwin, a: SheetAnalysis, cells, lib: Library, rng: ran
         if settings.mode == "random":
             nv = noisy(val, rng)
         else:
-            nv = val * factor(fkey, role)
+            nv = val * factor(fkey, role) * variation(r, c, role, fkey, val)
         new[(r, c)] = _shape(nv, val, v, role, st.roles.get(c, {}).get("price_points", settings.price_points), f)
 
     for (r, c), nv in list(new.items()):  # no masked number may keep its real value

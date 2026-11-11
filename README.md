@@ -6,11 +6,7 @@ Same layout. Fake names, IDs and numbers. Totals still add up. Runs entirely on 
 
 ![Twinwise review screen](docs/screenshots/02-review.png)
 
-
-https://github.com/user-attachments/assets/d35ff26e-51a1-4ccc-b39a-2bd4153dbecb
-
-
-<p align="center">🎬 <a href="docs/Twinwise_User_Guide.mp4"><b>Watch the 98-second user guide</b></a> · 📘 <a href="docs/USER_GUIDE.md"><b>User guide</b></a> · 📕 <a href="docs/USER_MANUAL.md"><b>User manual</b></a> · ⬇️ <a href="https://github.com/Chalkduggo/Twinwise/releases/latest"><b>Download for Windows · macOS · Linux</b></a></p>
+<p align="center">🎬 <a href="docs/Twinwise_User_Guide.mp4"><b>Watch the 98-second user guide</b></a> · 📘 <a href="docs/USER_GUIDE.md"><b>User guide</b></a> · 📕 <a href="docs/USER_MANUAL.md"><b>User manual</b></a> · 🛡️ <a href="docs/THREAT_MODEL.md"><b>Threat model</b></a> · ⬇️ <a href="https://github.com/Chalkduggo/Twinwise/releases/latest"><b>Download for Windows · macOS · Linux</b></a></p>
 
 ## The problem
 
@@ -20,8 +16,8 @@ Twinwise creates a **data twin**: a copy of the file that looks and behaves like
 
 | Original | Twin |
 |---|---|
-| `Northwind Cable PPV/VOD Activity Report` | `Company 1 PPV/VOD Activity Report` |
-| `99001 - PPV for Macon` | `79224 - PPV for Region 1` |
+| `Northwind Cable PPV Activity Report` | `Company 1 PPV Activity Report` |
+| `51001 - PPV for Aldermoor` | `79224 - PPV for Region 1` |
 | `LANTERN FAMILY CHANNEL`, vendor `418207` | `VENDOR 1`, vendor `187512` |
 | 5 buys × 4.99 = 24.95 | 7 buys × 3.99 = 27.93 *(still adds up)* |
 | `royalties@harbormedia.example` | `user1@example.com` |
@@ -81,7 +77,9 @@ twinwise demo        # writes made-up partner reports to ~/Twinwise/demo
 ```bash
 twinwise twin report.xlsx statements.zip -o out/          # create twins
 twinwise twin data.csv --mode scale                       # one hidden factor for everything
+twinwise twin report.xlsx --key-password "a long passphrase"     # encrypt the key file
 twinwise restore --key out/twin-key_2026-11-09.json answer.txt   # AI answer -> real names
+twinwise protect                                          # password-protect your library
 ```
 
 Exit code `2` means the safety check found a leak, so you can use it in scripts.
@@ -90,22 +88,24 @@ Exit code `2` means the safety check found a leak, so you can use it in scripts.
 
 | Mode | What happens | Use when |
 |---|---|---|
-| **consistent** (default) | Each column is multiplied by its own hidden factor. Formulas (×, −, +, average, max) and totals rows are recalculated so the twin adds up exactly. Counts stay whole numbers; prices can be rounded to real price points (3.64 → 3.99). | You want the AI to reason about the data |
-| **scale** | Every amount is multiplied by one hidden factor. All ratios stay exact. | You need exact ratios between columns |
+| **consistent** (default) | Each column is multiplied by its own hidden factor, and each row by a small hidden variation (±5% by default). Formulas (×, −, +, average, max) and totals rows are recalculated so the twin adds up exactly. Counts stay whole numbers; prices can be rounded to real price points (3.64 → 3.99). | You want the AI to reason about the data |
+| **scale** | Every amount is multiplied by one hidden factor. All ratios stay exact, but one known real figure reveals all the others. | You need exact ratios and the reader knows none of the real figures |
 | **random** | Each number gets independent noise. | Maximum privacy; totals won't add up |
 
 Hidden factors stay the same from month to month by default, so trends (+8% vs last month) are still meaningful. You can turn this off.
+
+**Row variation** makes it harder to work back from one known figure to the rest of a column. The same row gets the same variation in every column and every month, so ratios inside a row and row-level trends stay true. Rows with nearly equal values may swap order. See the [threat model](docs/THREAT_MODEL.md).
 
 No masked number keeps its real value. Small values are nudged so a "1" never stays "1".
 
 ## What it detects
 
 - **Names in name columns** (Partner, Vendor, Channel, Title, Region, City, State, System, Person, Email…). The whole value is replaced, consistently across all files.
-- **IDs and codes** (Vendor Number, System ID, UBEN, Provider Code…). Replaced with a fake that keeps the same shape (`E000105-12` → `B227380-03`).
+- **IDs and codes** (Vendor Number, System ID, Ref Code, Provider Code…). Replaced with a fake that keeps the same shape (`E000105-12` → `B227380-03`).
 - **Names inside text** (titles, notes, addresses, signatures). Capitalised words that aren't ordinary business words are replaced, company suffixes join the name (*Northwind Communications*), and digit runs are replaced. New finds are flagged for review.
 - **Emails and URLs.**
 - **Multi-row headers, key-value blocks** above tables (`Vendor Name: …`), totals rows and calculated columns.
-- **Hidden extras.** Comments, headers/footers, author and company properties are removed, and sheet names and the file name are masked too.
+- **Hidden extras.** Pivot tables, charts, images and logos, hyperlinks, comments, drop-down lists, external links, headers/footers and author properties are removed from the twin, because Excel stores copies of real values in them. Sheet names and the file name are masked too.
 
 ## Your library (all local)
 
@@ -118,11 +118,14 @@ ids.json           real ID -> fake ID
 factors.json       hidden factors per column (for month-to-month comparisons)
 templates/         one JSON file per report layout, with your column rules
 history.jsonl      a local log of every exported twin
+library.enc        replaces names, ids, factors and history when protection is on
 ```
 
-These are plain text files, so you can back them up or share templates with a teammate by hand.
+By default these are plain text files. **Turn on password protection** (Security page, or `twinwise protect`) and the names, IDs, factors and history are stored encrypted (AES-256-GCM, scrypt) in `library.enc`. Key files can be encrypted the same way at export. There is no password recovery.
 
 ## Safety model, and its limits
+
+Twinwise does **pseudonymisation**, not anonymisation. A twin is much safer to share than the original, but it is not public data. The full [threat model](docs/THREAT_MODEL.md) explains what is and isn't protected.
 
 Twinwise is built so that mistakes lean towards **over-masking**. Unknown text is masked and shown to you, not kept.
 
@@ -132,7 +135,9 @@ Please know what it does **not** guarantee:
 - Formulas are kept as formulas. Excel recalculates them from the masked inputs, and cached results are not stored.
 - Very small groups (a count of 1 in a small town) can still hint at a real customer. Twinwise warns you about these.
 - `.xls`, PDF and images aren't supported yet.
-- The key file contains the real values. Keep it private.
+- Someone who knows a real figure can estimate others in the same column (to within about ±10% at the default setting). Someone who knows your business can guess who a label is from its size.
+- Charts, pivot tables and images are removed from the twin, not rebuilt.
+- The key file contains the real values. Keep it private and give it a password.
 
 ## Privacy
 
@@ -156,7 +161,7 @@ Planned paid add-ons (separate, optional):
 
 ## Building the apps
 
-Push a tag like `v0.2.0`. `.github/workflows/release.yml` runs the tests on Windows, macOS and Linux, builds a single-file app on each with PyInstaller, starts it as a smoke test, and attaches all three downloads to the release.
+Push a tag like `v0.3.0`. `.github/workflows/release.yml` runs the tests on Windows, macOS and Linux, builds a single-file app on each with PyInstaller, starts it as a smoke test, and attaches all three downloads to the release.
 
 ## Development
 

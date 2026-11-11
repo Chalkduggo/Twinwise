@@ -21,10 +21,13 @@ from fastapi.staticfiles import StaticFiles
 
 from . import __version__
 from .analyze import ROLE_LABELS
-from .document import cell_ref
+from .document import HIDDEN_LABELS, cell_ref
 from .engine import Job
-from .keyfile import restore
-from .library import Library
+from . import crypto
+from . import library as libmod
+from .crypto import WrongPassword
+from .keyfile import open_key, restore
+from .library import Library, LibraryLocked
 from .twin import Settings
 
 UI_DIR = Path(__file__).parent / "ui"
@@ -42,6 +45,16 @@ async def local_only(request: Request, call_next):
     if host not in LOCAL_HOSTS:
         return JSONResponse({"detail": "Twinwise only accepts requests from this computer."}, status_code=403)
     return await call_next(request)
+
+
+@app.exception_handler(LibraryLocked)
+async def _locked(request: Request, exc: LibraryLocked):
+    return JSONResponse({"detail": "The library is locked. Enter your password to continue.", "locked": True}, status_code=423)
+
+
+@app.exception_handler(WrongPassword)
+async def _wrong_password(request: Request, exc: WrongPassword):
+    return JSONResponse({"detail": str(exc) or "Wrong password."}, status_code=401)
 
 
 app.mount("/static", StaticFiles(directory=UI_DIR), name="static")
@@ -79,19 +92,67 @@ def _summary(job: Job) -> dict:
             "index": i, "name": fj.doc.name, "twin_name": fj.twin.new_filename,
             "template": fj.template_name, "template_found": fj.template is not None,
             "template_score": round(fj.template_score, 2), "counts": fj.twin.counts(),
+            "removed": [{"what": HIDDEN_LABELS.get(k, k), "count": n} for k, n in fj.doc.hidden_parts.items()],
             "sheets": [{"index": si, "name": st.analysis.sheet.name, "new_name": st.new_name,
                         "rows": st.analysis.sheet.max_row, "cols": st.analysis.sheet.max_col,
                         "hidden": st.analysis.sheet.hidden, "counts": st.counts()}
                        for si, st in enumerate(fj.twin.sheets)],
         })
-    return {"id": job.id, "settings": job.settings.to_dict(), "files": files, "counts": job.counts()}
+    return {"id": job.id, "settings": job.settings.to_dict(), "files": files, "counts": job.counts(),
+            "library_protected": libmod.is_protected()}
 
 
 @app.get("/api/status")
 def status():
-    lib = Library.load()
-    return {"version": __version__, "home": str(lib.home), "templates": len(lib.list_templates()),
-            "names": len(lib.names), "safe_words": len(lib.safe_words), "history": len(lib.history())}
+    protected = libmod.is_protected()
+    out = {"version": __version__, "home": str(libmod.default_home()), "protected": protected,
+           "locked": protected and not libmod.is_unlocked(), "min_password": crypto.MIN_PASSWORD}
+    if not out["locked"]:
+        lib = Library.load()
+        out.update({"templates": len(lib.list_templates()), "names": len(lib.names),
+                    "safe_words": len(lib.safe_words), "history": len(lib.history())})
+    return out
+
+
+@app.post("/api/unlock")
+async def unlock(request: Request):
+    body = await request.json()
+    if not libmod.is_protected():
+        return {"ok": True}
+    libmod.unlock(body.get("password") or "")
+    return {"ok": True}
+
+
+@app.post("/api/lock")
+def lock_now():
+    libmod.lock()
+    with _LOCK:
+        JOBS.clear()
+    return {"ok": True}
+
+
+@app.post("/api/security")
+async def security(request: Request):
+    """Turn library protection on, change the password, or turn it off."""
+    body = await request.json()
+    action = body.get("action")
+    if libmod.is_protected():
+        if not libmod.is_unlocked():
+            raise LibraryLocked()
+        if (body.get("current") or "") != libmod.current_password():
+            raise WrongPassword("The current password is not correct.")
+    if action == "off":
+        libmod.set_protection(None)
+    elif action in ("on", "change"):
+        new = body.get("password") or ""
+        try:
+            crypto.check_password(new)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        libmod.set_protection(new)
+    else:
+        raise HTTPException(400, "Unknown action")
+    return {"ok": True, "protected": libmod.is_protected()}
 
 
 @app.post("/api/jobs")
@@ -107,6 +168,8 @@ async def create_job(files: list[UploadFile] = File(...)):
         paths.append(target)
     try:
         job = Job.create(paths)
+    except (LibraryLocked, WrongPassword):
+        raise
     except ValueError as e:
         raise HTTPException(400, str(e))
     except Exception as e:  # unreadable or corrupt file
@@ -164,6 +227,27 @@ def grid(job_id: str, file: int = 0, sheet: int = 0, offset: int = 0, limit: int
     merged = [m for m in sh.merged if m[0] <= last]
     return {"columns": cols, "rows": rows, "max_row": sh.max_row, "max_col": sh.max_col, "offset": offset,
             "merged": merged, "header_rows": a.header_rows, "sheet": sh.name, "new_name": st.new_name}
+
+
+@app.get("/api/jobs/{job_id}/next-review")
+def next_review(job_id: str, file: int = 0, sheet: int = 0, r: int = 0, c: int = 0):
+    """The next cell that needs a decision after (file, sheet, r, c), searching every row, sheet and file."""
+    job = _job(job_id)
+    order = [(fi, si) for fi, fj in enumerate(job.files) for si in range(len(fj.twin.sheets))]
+    if not order:
+        return {"none": True}
+    start = order.index((file, sheet)) if (file, sheet) in order else 0
+    for step in range(len(order) + 1):
+        fi, si = order[(start + step) % len(order)]
+        st = job.files[fi].twin.sheets[si]
+        cells = sorted(rc for rc, co in st.cells.items() if co.status == "review")
+        if step == 0:
+            cells = [rc for rc in cells if rc > (r, c)]
+        elif step == len(order):
+            cells = [rc for rc in cells if rc <= (r, c)]
+        if cells:
+            return {"file": fi, "sheet": si, "r": cells[0][0], "c": cells[0][1]}
+    return {"none": True}
 
 
 @app.post("/api/jobs/{job_id}/cell")
@@ -247,8 +331,8 @@ def preview(job_id: str, file: int = 0, max_rows: int = 60):
 def verify(job_id: str):
     job = _job(job_id)
     tmp = job.workdir / "verify" / datetime.now().strftime("%H%M%S%f")
-    rep = job.export(tmp, save_learning=False)
-    return {"all_clear": rep["all_clear"], "files": rep["files"]}
+    rep = job.export(tmp, save_learning=False, write_key=False)     # no key file is written while checking
+    return {"all_clear": rep["all_clear"], "files": rep["files"], "library_protected": libmod.is_protected()}
 
 
 @app.post("/api/jobs/{job_id}/export")
@@ -260,8 +344,14 @@ async def export(job_id: str, request: Request):
         pass
     job = _job(job_id)
     out = Path(body.get("out_dir") or (Path.home() / "Twinwise" / "exports" / datetime.now().strftime("%Y-%m-%d_%H%M%S")))
+    key_password = (body.get("key_password") or "").strip() or None
+    if key_password:
+        try:
+            crypto.check_password(key_password)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
     with _LOCK:
-        rep = job.export(out, save_learning=True)
+        rep = job.export(out, save_learning=True, key_password=key_password)
     EXPORT_DIRS.add(Path(rep["out_dir"]).resolve())
     files = []
     for f in rep["files"]:
@@ -357,7 +447,11 @@ async def restore_text(request: Request):
     key = body.get("key")
     if isinstance(key, str):
         key = json.loads(key)
-    if not key or key.get("format") != "twinwise-key/1":
+    try:
+        key = open_key(key, body.get("password") or libmod.current_password())
+    except WrongPassword:
+        raise
+    except Exception:
         raise HTTPException(400, "That is not a Twinwise key file.")
     return restore(body.get("text", ""), key)
 

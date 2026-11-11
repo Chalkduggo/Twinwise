@@ -2,15 +2,22 @@
 
 * Leak test   - every value Twinwise replaced must be absent from the saved twin
                 (cells, formulas, sheet names, file name, document properties).
+* Package scan - for Excel files, every part inside the saved .xlsx package is
+                searched too (not only the cells), and parts that can hold copies
+                of the original data (pivot caches, charts, images, external links,
+                macros) must not be present at all.
 * Risk check  - basic warnings about things that can still identify a partner or
                 person even after masking (small counts, kept percentages, kept text
                 that looks like a name).
 """
 from __future__ import annotations
 
+import html
 import re
+import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
+from xml.etree import ElementTree
 
 import openpyxl
 
@@ -98,6 +105,9 @@ def leak_test(ft: FileTwin, twin_path: Path) -> LeakReport:
                 if w.lower() in words and not any(w.lower() in f for f in fakes_lower):
                     rep.leaks.append({"where": where, "value": w, "type": "name word"})
 
+    if twin_path.suffix.lower() in (".xlsx", ".xlsm"):
+        _scan_package(twin_path, secrets, fakes_lower, rep)
+
     # numbers: the masked cells must not still hold their real value
     twin_vals = {}
     if twin_path.suffix.lower() in (".xlsx", ".xlsm"):
@@ -127,10 +137,90 @@ def leak_test(ft: FileTwin, twin_path: Path) -> LeakReport:
     return rep
 
 
+FORBIDDEN_PARTS = (
+    ("pivot", "pivot table data"), ("/charts/", "chart"), ("/chartsheets/", "chart sheet"), ("/media/", "image"),
+    ("/drawings/", "drawing"), ("externallink", "link to another workbook"), ("vbaproject", "macro"),
+    ("/embeddings/", "embedded file"), ("customxml", "custom XML"), ("/comments", "comment"),
+    ("/activex/", "ActiveX control"), ("/ctrlprops/", "form control"), ("/slicer", "slicer"), ("/querytables/", "query"),
+    ("/connections", "data connection"), ("docprops/custom", "custom property"),
+)
+_SKIP_PARTS = ("xl/theme/",)            # theme files hold only colour and font names
+_SKIP_TAGS = {"Application", "AppVersion", "DocSecurity"}
+_APP_CONSTANTS = {"Worksheets", "Named Ranges", "Charts", "Microsoft Excel"}
+
+
+def _part_strings(name: str, data: bytes) -> list[str]:
+    """Every piece of text in one package part that could hold workbook content.
+
+    Purely structural values are left out so ordinary words do not cause false alarms: internal part
+    links, font names, built-in cell-style names and the fixed labels Excel writes in app.xml.
+    """
+    low = name.lower()
+    if low == "[content_types].xml":
+        return []
+    try:
+        root = ElementTree.fromstring(data)
+    except ElementTree.ParseError:
+        return [html.unescape(data.decode("utf-8", "ignore"))]
+    out = []
+    is_rels, is_styles, is_app = low.endswith(".rels"), low.endswith("styles.xml"), low.endswith("docprops/app.xml")
+    for el in root.iter():
+        tag = el.tag.rsplit("}", 1)[-1]
+        if tag in _SKIP_TAGS:
+            continue
+        if is_rels:
+            if el.attrib.get("TargetMode") == "External" and el.attrib.get("Target"):
+                out.append(el.attrib["Target"])
+            continue
+        if is_styles and (tag in ("name", "family", "scheme", "charset") or (tag == "cellStyle" and "builtinId" in el.attrib)):
+            continue
+        if el.text and el.text.strip() and not (is_app and el.text.strip() in _APP_CONSTANTS):
+            out.append(el.text)
+        if el.tail and el.tail.strip():
+            out.append(el.tail)
+        out.extend(v for v in el.attrib.values() if v)
+    return out
+
+
+def _scan_package(path: Path, secrets: set[str], fakes_lower: set[str], rep: LeakReport) -> None:
+    """Search the raw .xlsx package: forbidden parts, then every string in every part."""
+    try:
+        z = zipfile.ZipFile(path)
+    except zipfile.BadZipFile:
+        rep.leaks.append({"where": path.name, "value": "file could not be opened for checking", "type": "unreadable"})
+        return
+    pats = [(s, s.lower(), re.compile(r"(?<![a-z0-9])" + re.escape(s.lower()) + r"(?![a-z0-9])")) for s in secrets]
+    with z:
+        for info in z.infolist():
+            low = "/" + info.filename.lower()
+            hit = next((label for frag, label in FORBIDDEN_PARTS if frag in low), None)
+            if hit:
+                rep.leaks.append({"where": info.filename, "value": hit, "type": "hidden part not removed"})
+                continue
+            if any(info.filename.startswith(p) for p in _SKIP_PARTS):
+                continue
+            if not info.filename.lower().endswith((".xml", ".rels", ".vml", ".txt")):
+                rep.leaks.append({"where": info.filename, "value": "unexpected file in the package", "type": "hidden part not removed"})
+                continue
+            texts = [t.lower() for t in _part_strings(info.filename, z.read(info))]
+            rep.checked_values += 1
+            for s, sl, pat in pats:
+                for t in texts:
+                    m = pat.search(t)
+                    if not m:
+                        continue
+                    window = t[max(0, m.start() - 40): m.end() + 40]
+                    if any(sl in f and f in window for f in fakes_lower):
+                        continue
+                    if not any(l["value"] == s for l in rep.leaks):
+                        rep.leaks.append({"where": f"inside the file: {info.filename}", "value": s, "type": "text"})
+                    break
+
+
 _WORD = re.compile(r"[A-Za-z][A-Za-z'.&]+")
 
 
-def risk_check(ft: FileTwin) -> dict:
+def risk_check(ft: FileTwin, settings=None) -> dict:
     warnings = []
     small = 0
     for st in ft.sheets:
@@ -158,9 +248,22 @@ def risk_check(ft: FileTwin) -> dict:
     if suspicious:
         warnings.append({"level": "low", "title": "Kept text you may want to glance at",
                          "detail": ", ".join(sorted(suspicious)[:25]) + (" …" if len(suspicious) > 25 else "")})
+    if settings is not None:
+        if settings.mode == "scale":
+            warnings.append({"level": "medium", "title": "One hidden factor for every number",
+                             "detail": "In this mode, anyone who knows one real figure can work out all the others. "
+                                       "Use Consistent mode with row variation unless exact ratios are essential."})
+        elif settings.mode == "consistent" and settings.variation <= 0:
+            warnings.append({"level": "medium", "title": "Row variation is off",
+                             "detail": "Each column uses a single hidden factor, so anyone who knows one real figure in "
+                                       "a column can work out the rest of that column."})
+        if settings.mode != "random" and settings.stable_factors:
+            warnings.append({"level": "low", "title": "Same hidden factors every month",
+                             "detail": "This keeps month-to-month trends true, but a figure learned from one month's twin "
+                                       "helps estimate other months. Turn it off for one-off sharing."})
     review = sum(s.counts().get("review", 0) for s in ft.sheets)
     if review:
-        warnings.append({"level": "medium", "title": f"{review} cells were masked automatically without your review",
+        warnings.append({"level": "medium", "title": f"{review} cell{'' if review == 1 else 's'} masked automatically without your review",
                          "detail": "They are masked (safe), but reviewing them teaches Twinwise for next time."})
     level = "high" if any(w["level"] == "high" for w in warnings) else (
         "medium" if sum(w["level"] == "medium" for w in warnings) >= 2 else "low")

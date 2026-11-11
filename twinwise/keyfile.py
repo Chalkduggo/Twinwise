@@ -10,6 +10,8 @@ import re
 from datetime import datetime
 from pathlib import Path
 
+from . import crypto
+from .crypto import WrongPassword  # noqa: F401  (re-exported)
 from .twin import FileTwin
 
 FORMAT = "twinwise-key/1"
@@ -37,17 +39,35 @@ def build_key(twins: list[FileTwin], settings: dict) -> dict:
     }
 
 
-def save_key(key: dict, path: Path) -> Path:
+def save_key(key: dict, path: Path, password: str | None = None) -> Path:
+    """Write the key file. With a password it is encrypted (AES-256-GCM); without, it is plain JSON."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(key, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
+    text = json.dumps(key, indent=2, ensure_ascii=False, default=str)
+    if password:
+        crypto.check_password(password)
+        text = crypto.dumps(crypto.encrypt(text.encode("utf-8"), password, "key"))
+    path.write_text(text, encoding="utf-8")
     return path
 
 
-def load_key(path: Path | str) -> dict:
-    key = json.loads(Path(path).read_text(encoding="utf-8"))
-    if key.get("format") != FORMAT:
+def open_key(obj: dict, password: str | None = None) -> dict:
+    """Return the usable key from a loaded key file, decrypting it if needed."""
+    if crypto.is_envelope(obj):
+        obj = json.loads(crypto.decrypt(obj, password).decode("utf-8"))
+    if not isinstance(obj, dict) or obj.get("format") != FORMAT:
         raise ValueError("This is not a Twinwise key file.")
-    return key
+    return obj
+
+
+def is_encrypted_key(path: Path | str) -> bool:
+    try:
+        return crypto.is_envelope(json.loads(Path(path).read_text(encoding="utf-8")))
+    except (OSError, ValueError):
+        return False
+
+
+def load_key(path: Path | str, password: str | None = None) -> dict:
+    return open_key(json.loads(Path(path).read_text(encoding="utf-8")), password)
 
 
 _NUM = re.compile(r"(?<![\w.])-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?![\w])")

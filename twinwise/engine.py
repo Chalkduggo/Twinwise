@@ -23,7 +23,7 @@ from pathlib import Path
 
 from . import __version__
 from .analyze import SheetAnalysis, _norm, analyze
-from .document import Document, cell_ref, expand_inputs, load, save_twin
+from .document import HIDDEN_LABELS, Document, cell_ref, expand_inputs, load, save_twin
 from .keyfile import build_key, save_key
 from .library import Library
 from .twin import FileTwin, Settings, build_file_twin
@@ -139,7 +139,13 @@ class Job:
         return tot
 
     # ---------- export ----------
-    def export(self, out_dir: Path | str, *, save_learning: bool = True, user: str = "", context: bool = True) -> dict:
+    def export(self, out_dir: Path | str, *, save_learning: bool = True, user: str = "", context: bool = True,
+               key_password: str | None = None, write_key: bool = True) -> dict:
+        """Write twins, context files, the key file and a report.
+
+        ``key_password`` encrypts the key file. Without one, the library password is used if the library
+        is protected; otherwise the key file is written as plain JSON.
+        """
         out_dir = Path(out_dir).expanduser()
         stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -164,22 +170,38 @@ class Job:
                     for x in extras:
                         x.unlink(missing_ok=True)
                     extras = []
-            risk = risk_check(fj.twin)
+            risk = risk_check(fj.twin, self.settings)
             results.append({"original": fj.doc.name, "twin": str(target), "twin_name": target.name,
                             "context": [str(x) for x in extras],
+                            "removed": [{"what": HIDDEN_LABELS.get(k, k), "count": n}
+                                        for k, n in fj.doc.hidden_parts.items()],
                             "counts": fj.twin.counts(), "leak": leak.to_dict(), "risk": risk,
                             "template": fj.template_name})
-        key = build_key([fj.twin for fj in self.files], self.settings.to_dict())
-        key_path = save_key(key, out_dir / f"twin-key_{stamp}.json")
+        key_path, key_protected = None, False
+        if write_key:
+            from .library import current_password
+            pw = key_password or current_password()
+            key = build_key([fj.twin for fj in self.files], self.settings.to_dict())
+            key_path = save_key(key, out_dir / f"twin-key_{stamp}.json", pw)
+            key_protected = bool(pw)
         report = {
             "tool": f"Twinwise {__version__}",
             "created": datetime.now().isoformat(timespec="seconds"),
             "settings": self.settings.to_dict(),
             "files": results,
-            "key_file": key_path.name,
+            "key_file": key_path.name if key_path else None,
+            "key_protected": key_protected,
             "all_clear": all(r["leak"]["ok"] for r in results),
         }
-        (out_dir / f"twin-report_{stamp}.json").write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
+        on_disk = report
+        if key_protected:
+            # The report sits next to the twins in plain text, so when the key is locked it must not
+            # name the real files or quote real values. The originals are inside the encrypted key.
+            on_disk = dict(report, files=[
+                dict({k: v for k, v in r.items() if k != "original"},
+                     leak={k: v for k, v in r["leak"].items() if k in ("ok", "leak_count", "checked_values")})
+                for r in results])
+        (out_dir / f"twin-report_{stamp}.json").write_text(json.dumps(on_disk, indent=2, default=str), encoding="utf-8")
 
         if save_learning and report["all_clear"]:
             self.library = self.scratch
@@ -191,7 +213,7 @@ class Job:
                                                         "leaks": r["leak"]["leak_count"]} for r in results],
                               "mode": self.settings.mode, "out_dir": str(out_dir)})
         report["out_dir"] = str(out_dir)
-        report["key_path"] = str(key_path)
+        report["key_path"] = str(key_path) if key_path else None
         return report
 
     def save_template(self, fj: FileJob, name: str | None = None) -> dict:

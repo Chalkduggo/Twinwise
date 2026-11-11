@@ -70,6 +70,8 @@ In **Summary**:
 - **One hidden factor**: every amount is multiplied by the same factor.
 - **Random**: independent noise. Most private, but totals won't add up.
 
+In Consistent mode you can also set **Row variation** (Off, ±5%, ±10%, ±20%). Each row gets a small hidden extra change, so someone who knows one real figure cannot work out the rest of the column exactly. ±5% is the default and suits most uses.
+
 ## 7. Compare original and twin
 
 Use **Plan / Original / Twin** at the top right.
@@ -78,7 +80,11 @@ Use **Plan / Original / Twin** at the top right.
 
 ## 8. Safety check
 
-Click **Continue**. Twinwise saves the twin and searches it for every value it replaced: cells, sheet names, file name and document properties. If anything is found, export is blocked.
+Click **Continue**. Twinwise saves the twin and searches it for every value it replaced: cells, sheet names, the file name and every hidden part inside the file. If anything is found, export is blocked.
+
+Pivot tables, charts, images, hyperlinks and comments are **removed from the twin**, because Excel keeps copies of real values in them. The check lists what was removed.
+
+On this page you can also type a **password for the key file**. Do this whenever the twin is going outside your team.
 
 ![Safety check](screenshots/09-verify.png)
 
@@ -91,7 +97,7 @@ Warnings such as *small counts* or *kept text you may want to glance at* are the
 You get:
 
 - **The twin** (`…_TWIN.xlsx` / `.csv`). Upload this to ChatGPT, Claude, Copilot or any other AI tool.
-- **The key file** (`twin-key_….json`). **Private.** Never upload or share it.
+- **The key file** (`twin-key_….json`). **Private.** Never upload or share it. With a password it is stored encrypted.
 - **AI context** (`…_CONTEXT.md`): a data card that explains the twin to an AI. It covers column meanings, formulas, totals and summary figures. Upload it together with the twin for better answers.
 - **RAG chunks** (`…_chunks.jsonl`): ready-made pieces for a RAG / vector-database pipeline, one JSON object per line with `id`, `type`, `text` and `metadata`.
 - A report of the checks (`twin-report_….json`)
@@ -123,6 +129,10 @@ Everything Twinwise learns is stored on your computer in `.twinwise` in your hom
 - **Safe words**: text that's never masked
 - **History**: a local record of every export
 
+The name library holds your real names. Open **Security** and turn on **Library protection** to store it encrypted. Twinwise then asks for the password when it starts, and new key files use the same password by default. There is no password recovery, so keep it somewhere safe.
+
+![Security](screenshots/15-security.png)
+
 ![Templates](screenshots/13-templates.png)
 ![Names](screenshots/14-names.png)
 
@@ -131,7 +141,9 @@ Everything Twinwise learns is stored on your computer in `.twinwise` in your hom
 ## Tips
 
 - Review red cells the first time you use a new layout. It takes a minute and makes every later month automatic.
-- Keep the key file next to the twin, but never upload it.
+- Keep the key file next to the twin, but never upload it. Give it a password.
+- In large files, **Next to review** jumps to the next red cell wherever it is, and the arrows above the table move through the rows 400 at a time.
+- A twin hides names and values from a reader. It doesn't make the data public-safe; see the [threat model](THREAT_MODEL.md).
 - Small counts (1–4) can still point to a real customer. Group or remove those rows if that matters.
 - To start fresh, delete the `.twinwise` folder in your home directory.
 
@@ -140,5 +152,6 @@ Everything Twinwise learns is stored on your computer in `.twinwise` in your hom
 ```bash
 twinwise twin "Partner report.xlsx" -o out/
 twinwise restore --key out/twin-key_2026-11-09.json answer.txt
+twinwise protect            # password-protect your library
 twinwise demo
 ```

@@ -12,8 +12,8 @@ from pathlib import Path
 import openpyxl
 from openpyxl.styles import Alignment, Font, PatternFill
 
-CITIES = ["Macon", "New Orleans", "Oklahoma City", "Tulsa", "Omaha", "Wichita", "Baton Rouge", "Lafayette",
-          "Shreveport", "Little Rock", "Savannah", "Augusta"]
+CITIES = ["Aldermoor", "Port Selwyn", "Marlow City", "Tessin", "Orrinby", "Wexley", "Brannock Point", "Larkhaven",
+          "Sandpiper", "Linden Rock", "Solvay", "Ashcombe"]
 STATES = ["GA", "LA", "OK", "OK", "NE", "KS", "LA", "LA", "LA", "AR", "GA", "GA"]
 
 
@@ -22,11 +22,11 @@ def ppv_report(path: Path, month: str = "08/2026", period: str = "Aug-26", seed:
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Sheet1"
-    ws["A1"] = f"Northwind Cable PPV/VOD Activity Report for {month} thru {month}"
+    ws["A1"] = f"Northwind Cable PPV Activity Report for {month} thru {month}"
     ws["A1"].font = Font(bold=True, size=12)
     ws["A2"], ws["B2"] = "Vendor Name", "LANTERN FAMILY CHANNEL"
     ws["A3"], ws["B3"] = "Vendor Number", "418207"
-    heads = ["\nSystem", "\nTitle", "\nUBEN", "Provider \nCode", "Actual\nPeriod", "Number\nof Buys", "Sale\nPrice",
+    heads = ["\nSystem", "\nTitle", "\nRef Code", "Provider \nCode", "Actual\nPeriod", "Number\nof Buys", "Sale\nPrice",
              "\nRevenue", "\nSplit %", "Split\nRate", "Minimum\nRate", "Greater\nValue", "Total\nAmount"]
     for c, h in enumerate(heads, start=1):
         cell = ws.cell(row=4, column=c, value=h)
@@ -36,8 +36,8 @@ def ppv_report(path: Path, month: str = "08/2026", period: str = "Aug-26", seed:
     r = 6
     grand_b, grand_rev, grand_tot = 0, 0.0, 0.0
     for i, city in enumerate(CITIES[:9]):
-        code = 99001 + i * 41
-        kind = "PPV CLU" if i % 3 == 1 else "PPV"
+        code = 51001 + i * 41
+        kind = "PPV HD" if i % 3 == 1 else "PPV"
         system = f"{code} - {kind} for {city}"
         lines = 1 if i % 4 else 2
         blk_b, blk_rev, blk_tot = 0, 0.0, 0.0
