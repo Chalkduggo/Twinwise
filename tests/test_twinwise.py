@@ -75,7 +75,7 @@ def test_real_names_are_gone_from_saved_twin(home, demo, tmp_path):
     for f in rep["files"]:
         p = Path(f["twin"])
         if p.suffix == ".csv":
-            text = p.read_text()
+            text = p.read_text(encoding="utf-8")
         else:
             wb = openpyxl.load_workbook(p)
             text = " ".join(str(c.value) for ws in wb for row in ws.iter_rows() for c in row if c.value is not None)
@@ -89,7 +89,7 @@ def test_real_names_are_gone_from_saved_twin(home, demo, tmp_path):
 def test_csv_keeps_formatting_and_totals(home, demo, tmp_path):
     job = Job.create([demo[3]], seed=4)
     rep = job.export(tmp_path / "out")
-    rows = list(csv.reader(io.StringIO(Path(rep["files"][0]["twin"]).read_text())))
+    rows = list(csv.reader(io.StringIO(Path(rep["files"][0]["twin"]).read_text(encoding="utf-8"))))
     assert rows[0][0] == "Partner"
     assert rows[1][5].startswith("$") and rows[1][6].endswith("%")
     body = [r for r in rows[1:] if r[0] != "Total"]
@@ -198,12 +198,12 @@ def test_ai_context_files(home, demo, tmp_path):
     assert rep["all_clear"]
     for f in rep["files"]:
         md, jl = sorted(f["context"], key=lambda p: p.endswith(".jsonl"))
-        text = Path(md).read_text()
+        text = Path(md).read_text(encoding="utf-8")
         assert "synthetic twin" in text and "**Columns**" in text
-        chunks = [_json.loads(l) for l in Path(jl).read_text().splitlines()]
+        chunks = [_json.loads(l) for l in Path(jl).read_text(encoding="utf-8").splitlines()]
         assert any(c["type"] == "row" for c in chunks) and all(c["text"] and c["id"] for c in chunks)
-        blob = (text + Path(jl).read_text()).lower()
+        blob = (text + Path(jl).read_text(encoding="utf-8")).lower()
         for secret in ("northwind", "lantern", "harbor media", "macon", "quiet orchard", "418207"):
             assert secret not in blob, secret
-    ppv = Path([c for c in rep["files"][0]["context"] if c.endswith(".md")][0]).read_text()
+    ppv = Path([c for c in rep["files"][0]["context"] if c.endswith(".md")][0]).read_text(encoding="utf-8")
     assert "Revenue = Number of Buys × Sale Price" in ppv
