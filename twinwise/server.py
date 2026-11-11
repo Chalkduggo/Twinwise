@@ -263,7 +263,12 @@ async def export(job_id: str, request: Request):
     with _LOCK:
         rep = job.export(out, save_learning=True)
     EXPORT_DIRS.add(Path(rep["out_dir"]).resolve())
-    files = [{"label": "Twin", "name": f["twin_name"], "path": f["twin"], "kind": "twin"} for f in rep["files"]]
+    files = []
+    for f in rep["files"]:
+        files.append({"label": "Twin", "name": f["twin_name"], "path": f["twin"], "kind": "twin"})
+        for c in f.get("context", []):
+            files.append({"label": "AI context", "name": Path(c).name, "path": c,
+                          "kind": "chunks" if c.endswith(".jsonl") else "context"})
     files.append({"label": "Private key", "name": Path(rep["key_path"]).name, "path": rep["key_path"], "kind": "key"})
     return {**rep, "downloads": files}
 

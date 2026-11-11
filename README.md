@@ -6,11 +6,7 @@ Same layout. Fake names, IDs and numbers. Totals still add up. Runs entirely on 
 
 ![Twinwise review screen](docs/screenshots/02-review.png)
 
-
-https://github.com/user-attachments/assets/1d2ba89a-aa02-4507-b86a-b07431242694
-
-
-<p align="center">🎬 <a href="docs/Twinwise_User_Guide.mp4"><b>Watch the 98-second user guide</b></a> · 📘 <a href="docs/USER_GUIDE.md"><b>Read the user guide</b></a> · ⬇️ <a href="https://github.com/Chalkduggo/Twinwise/releases/latest"><b>Download for Windows</b></a></p>
+<p align="center">🎬 <a href="docs/Twinwise_User_Guide.mp4"><b>Watch the 98-second user guide</b></a> · 📘 <a href="docs/USER_GUIDE.md"><b>User guide</b></a> · 📕 <a href="docs/USER_MANUAL.md"><b>User manual</b></a> · ⬇️ <a href="https://github.com/Chalkduggo/Twinwise/releases/latest"><b>Download for Windows · macOS · Linux</b></a></p>
 
 ## The problem
 
@@ -34,6 +30,13 @@ Twinwise creates a **data twin**: a copy of the file that looks and behaves like
 4. **Safety check.** The saved twin is searched for every value that was replaced: cells, sheet names, file name and document properties. Export is blocked if anything is found.
 5. **Export and use.** You get the twin (safe to share) and a private **key file** (never share it). Paste the AI's answer into *Restore AI answer* to see real names again.
 
+Every export also includes **AI-ready context** for chat or RAG pipelines:
+
+- `…_CONTEXT.md`: a data card covering what the file is, what each column means, the formulas in plain words (*Revenue = Number of Buys × Sale Price*), totals and summary figures. Paste it into a chat next to the twin, or index it.
+- `…_chunks.jsonl`: ready-made chunks (overview, columns, totals, one per row) with metadata such as file, sheet, row and name labels. Load them straight into LangChain, LlamaIndex, Azure AI Search, pgvector, or anything that takes JSON lines.
+
+Both are built from the twin only and pass the same leak test, so nothing real reaches your vector database.
+
 Twinwise **learns**. Your decisions are saved as templates and a name library, so next month's file from the same partner is recognised and needs no review.
 
 | Review | Safety check | Export |
@@ -42,7 +45,15 @@ Twinwise **learns**. Your decisions are saved as templates and a name library, s
 
 ## Install
 
-**Windows (easiest):** download `Twinwise.exe` from [Releases](https://github.com/Chalkduggo/Twinwise/releases/latest) and double-click it. The app isn't code-signed yet, so Windows may show *"Windows protected your PC"*: click **More info → Run anyway**.
+**Download the app** from [Releases](https://github.com/Chalkduggo/Twinwise/releases/latest). No Python needed:
+
+| System | File | Start it |
+|---|---|---|
+| Windows 10/11 | `Twinwise-Windows.zip` | Unzip, double-click `Twinwise.exe`. If you see *"Windows protected your PC"*, click **More info → Run anyway**. |
+| macOS (Apple Silicon) | `Twinwise-macOS-AppleSilicon.zip` | Unzip, double-click `Start Twinwise.command`. If macOS blocks it, go to **System Settings → Privacy & Security → Open Anyway**. |
+| Linux (x86-64) | `Twinwise-Linux-x86_64.tar.gz` | `tar -xzf …` then `./Twinwise/start-twinwise.sh` |
+
+The apps aren't code-signed yet, which is why the operating system asks once. Intel Macs: use the Python install below.
 
 **With Python 3.10 or newer:**
 
@@ -53,7 +64,7 @@ pip install -e .
 twinwise ui          # opens http://127.0.0.1:8765 in your browser
 ```
 
-On Windows you can double-click **`Start-Twinwise.bat`**. It creates a private Python environment the first time, then opens the app.
+From source, double-click **`Start-Twinwise.bat`** (Windows) or run **`./start-twinwise.sh`** (macOS/Linux). Either one creates a private Python environment the first time, then opens the app.
 
 To try it without your own files:
 
@@ -139,9 +150,9 @@ Planned paid add-ons (separate, optional):
 - PDF statements
 - Team sharing with approvals and single sign-on
 
-## Building the Windows app
+## Building the apps
 
-Push a tag like `v0.1.0`. The GitHub Action in `.github/workflows/build-windows.yml` runs the tests on Windows, builds `Twinwise.exe` with PyInstaller, smoke-tests it and attaches it to the release.
+Push a tag like `v0.2.0`. `.github/workflows/release.yml` runs the tests on Windows, macOS and Linux, builds a single-file app on each with PyInstaller, starts it as a smoke test, and attaches all three downloads to the release.
 
 ## Development
 
@@ -159,9 +170,12 @@ The code is small and readable:
 | `twin.py` | Builds the twin and recalculates numbers |
 | `verify.py` | Leak test and risk warnings |
 | `keyfile.py` | Key file and restore |
+| `rag.py` | AI context data card and RAG chunks |
 | `engine.py` | Jobs, templates, export |
 | `server.py`, `ui/` | Local review screen (no build step) |
 
 ## License
 
 Apache License 2.0. See [LICENSE](LICENSE).
+
+Twinwise is developed and maintained by **LoopWise**, created by **Suman Mondal**.

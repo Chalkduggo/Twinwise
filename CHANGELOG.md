@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0 — AI context and all platforms
+
+- **AI-ready context**: every twin now comes with `_CONTEXT.md` (a data card: what each column means, formulas in plain words, totals, summary figures) and `_chunks.jsonl` (overview, column, totals and per-row chunks with metadata for RAG / vector databases). Both are built from twin values only and pass the same leak test.
+- **Downloads for Windows, macOS (Apple Silicon) and Linux**, built and smoke-tested by GitHub Actions on every version tag
+- File and sheet names now also mask lower-case partner words (`harbor_media_statement.csv` → `Company 1 statement`); the leak test checks this
+- Choosing "Replace the whole cell" also teaches Twinwise the names inside it
+- `--no-context` option on the command line
+
 ## 0.1.0 — first open-source release
 
 - Excel (.xlsx/.xlsm), CSV/TSV and ZIP input

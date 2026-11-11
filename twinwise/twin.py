@@ -217,17 +217,35 @@ def build_file_twin(doc: Document, analyses: list[SheetAnalysis], lib: Library, 
 
         _mask_numbers(st, a, numeric_cells, lib, rng, settings, ft)
 
-        sres = mask_text(sh.name, lib, rng)
+        sres = mask_text(_flag_name_words(sh.name, ft), lib, rng)
         record(sres)
         st.new_name = sres.text[:31] if sres.changed else sh.name
         ft.sheets.append(st)
 
     stem, dot, ext = doc.path.name.rpartition(".")
-    fres = mask_text(stem.replace("_", " "), lib, random.Random(f"{seed}-name"))
+    fres = mask_text(_flag_name_words(stem.replace("_", " "), ft), lib, random.Random(f"{seed}-name"))
     record(fres)
     ft.new_filename = (fres.text if fres.changed else stem.replace("_", " ")).strip() + "_TWIN." + ext.lower()
     ft.new_filename = re.sub(r'[\\/:*?"<>|\n\r\t]+', " ", ft.new_filename)
     return ft
+
+
+def name_words(ft: "FileTwin") -> set[str]:
+    """Distinctive words that belong to names replaced in this file ("harbor" from "Harbor Media Group")."""
+    from .vocab import ACRONYMS, COMMON, MONTHS, ORG_SUFFIXES, STOP_WORDS
+    plain = COMMON | STOP_WORDS | ACRONYMS | MONTHS | ORG_SUFFIXES
+    out = set()
+    for info in ft.names.values():
+        for w in re.findall(r"[A-Za-z]{3,}", str(info["real"])):
+            if w.lower() not in plain:
+                out.add(w.lower())
+    return out
+
+
+def _flag_name_words(text: str, ft: "FileTwin") -> str:
+    """Capitalise words that are part of a known name, so lower-case file names get masked too."""
+    words = name_words(ft)
+    return re.sub(r"[A-Za-z]{3,}", lambda m: m.group(0).capitalize() if m.group(0).lower() in words and m.group(0).islower() else m.group(0), text)
 
 
 def _copy_lib(lib: Library) -> Library:

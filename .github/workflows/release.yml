@@ -1,0 +1,103 @@
+name: Build apps (Windows, macOS, Linux)
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            asset: Twinwise-Windows.zip
+          - os: macos-latest          # Apple Silicon (M1/M2/M3/M4)
+            asset: Twinwise-macOS-AppleSilicon.zip
+          - os: ubuntu-22.04          # older glibc = runs on more Linux versions
+            asset: Twinwise-Linux-x86_64.tar.gz
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install and test
+        run: |
+          pip install -e ".[dev]" pyinstaller
+          pytest -q
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: >
+          pyinstaller --noconfirm --onefile --name Twinwise --icon assets/twinwise.ico
+          --add-data "twinwise/ui;twinwise/ui" --collect-submodules uvicorn
+          --hidden-import python_multipart --hidden-import multipart twinwise_launcher.py
+
+      - name: Build (macOS / Linux)
+        if: runner.os != 'Windows'
+        run: >
+          pyinstaller --noconfirm --onefile --name Twinwise
+          --add-data "twinwise/ui:twinwise/ui" --collect-submodules uvicorn
+          --hidden-import python_multipart --hidden-import multipart twinwise_launcher.py
+
+      - name: Smoke test (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $p = Start-Process dist\Twinwise.exe -ArgumentList "ui","--no-browser","--port","8799" -PassThru
+          Start-Sleep -Seconds 10
+          $r = Invoke-WebRequest http://127.0.0.1:8799/api/status -UseBasicParsing
+          Stop-Process -Id $p.Id
+          if ($r.StatusCode -ne 200) { exit 1 }
+
+      - name: Smoke test (macOS / Linux)
+        if: runner.os != 'Windows'
+        run: |
+          ./dist/Twinwise ui --no-browser --port 8799 &
+          sleep 10
+          curl -sf http://127.0.0.1:8799/api/status
+          kill %1
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory pkg | Out-Null
+          Copy-Item dist\Twinwise.exe pkg\
+          Copy-Item packaging\README-download.txt pkg\README.txt
+          Compress-Archive -Path pkg\* -DestinationPath ${{ matrix.asset }}
+
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p pkg/Twinwise
+          cp dist/Twinwise packaging/Start\ Twinwise.command pkg/Twinwise/
+          cp packaging/README-download.txt pkg/Twinwise/README.txt
+          chmod +x pkg/Twinwise/Twinwise "pkg/Twinwise/Start Twinwise.command"
+          cd pkg && ditto -c -k --keepParent Twinwise ../${{ matrix.asset }}
+
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p pkg/Twinwise
+          cp dist/Twinwise packaging/start-twinwise.sh pkg/Twinwise/
+          cp packaging/README-download.txt pkg/Twinwise/README.txt
+          chmod +x pkg/Twinwise/Twinwise pkg/Twinwise/start-twinwise.sh
+          tar -C pkg -czf ${{ matrix.asset }} Twinwise
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: ${{ matrix.asset }}
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.asset }}

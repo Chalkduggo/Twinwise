@@ -10,8 +10,10 @@ Twinwise makes a **data twin** of a spreadsheet: the same layout, with names, ID
 
 | You have | Do this |
 |---|---|
-| **Windows, no Python** | Download `Twinwise.exe` from the [Releases page](https://github.com/Chalkduggo/Twinwise/releases) and double-click it. If Windows shows *"Windows protected your PC"*, click **More info → Run anyway** (the app isn't code-signed yet). |
-| **Windows with Python 3.10+** | Download the code and double-click `Start-Twinwise.bat`. |
+| **Windows** | Download `Twinwise-Windows.zip` from the [Releases page](https://github.com/Chalkduggo/Twinwise/releases/latest), unzip it and double-click `Twinwise.exe`. If Windows shows *"Windows protected your PC"*, click **More info → Run anyway** (the app isn't code-signed yet). |
+| **Mac (M1/M2/M3/M4)** | Download `Twinwise-macOS-AppleSilicon.zip`, unzip it and double-click `Start Twinwise.command`. If macOS blocks it: **System Settings → Privacy & Security → Open Anyway**. |
+| **Linux** | Download `Twinwise-Linux-x86_64.tar.gz`, extract it, run `./start-twinwise.sh`. |
+| **With Python 3.10+** | Download the code, double-click `Start-Twinwise.bat` (Windows) or run `./start-twinwise.sh` (Mac/Linux). |
 | **Mac / Linux / developers** | `pip install -e .` then `twinwise ui` |
 
 Your browser opens at `http://127.0.0.1:8765`. This address only works on your own computer. Keep the black window open while you work, and close it to stop Twinwise.
@@ -90,7 +92,11 @@ You get:
 
 - **The twin** (`…_TWIN.xlsx` / `.csv`). Upload this to ChatGPT, Claude, Copilot or any other AI tool.
 - **The key file** (`twin-key_….json`). **Private.** Never upload or share it.
+- **AI context** (`…_CONTEXT.md`): a data card that explains the twin to an AI. It covers column meanings, formulas, totals and summary figures. Upload it together with the twin for better answers.
+- **RAG chunks** (`…_chunks.jsonl`): ready-made pieces for a RAG / vector-database pipeline, one JSON object per line with `id`, `type`, `text` and `metadata`.
 - A report of the checks (`twin-report_….json`)
+
+The context files are built only from the twin and are leak-tested like the twin itself.
 
 Files are saved in `Documents\..\Twinwise\exports` (your home folder → `Twinwise\exports`).
 

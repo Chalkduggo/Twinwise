@@ -27,7 +27,8 @@ from .document import Document, cell_ref, expand_inputs, load, save_twin
 from .keyfile import build_key, save_key
 from .library import Library
 from .twin import FileTwin, Settings, build_file_twin
-from .verify import leak_test, risk_check
+from . import rag
+from .verify import leak_test, leak_test_files, risk_check
 
 
 @dataclass
@@ -138,7 +139,7 @@ class Job:
         return tot
 
     # ---------- export ----------
-    def export(self, out_dir: Path | str, *, save_learning: bool = True, user: str = "") -> dict:
+    def export(self, out_dir: Path | str, *, save_learning: bool = True, user: str = "", context: bool = True) -> dict:
         out_dir = Path(out_dir).expanduser()
         stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -152,8 +153,20 @@ class Job:
                 n += 1
             save_twin(fj.doc, values, names, target)
             leak = leak_test(fj.twin, target)
+            extras = []
+            if context:
+                extras = rag.write(fj.twin, target)
+                extra_leak = leak_test_files(fj.twin, extras)
+                leak.leaks.extend(extra_leak.leaks)
+                leak.coincidences.extend(extra_leak.coincidences)
+                leak.checked_values += extra_leak.checked_values
+                if extra_leak.leaks:
+                    for x in extras:
+                        x.unlink(missing_ok=True)
+                    extras = []
             risk = risk_check(fj.twin)
             results.append({"original": fj.doc.name, "twin": str(target), "twin_name": target.name,
+                            "context": [str(x) for x in extras],
                             "counts": fj.twin.counts(), "leak": leak.to_dict(), "risk": risk,
                             "template": fj.template_name})
         key = build_key([fj.twin for fj in self.files], self.settings.to_dict())

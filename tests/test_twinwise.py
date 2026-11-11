@@ -189,3 +189,21 @@ def test_mask_all_decision_is_learned(home, demo, tmp_path):
     job.export(tmp_path / "o1")
     nxt = Job.create([demo[1]], seed=1)
     assert nxt.files[0].twin.counts().get("review", 0) == 0
+
+
+def test_ai_context_files(home, demo, tmp_path):
+    import json as _json
+    job = Job.create([demo[0], demo[3]], seed=2)
+    rep = job.export(tmp_path / "out")
+    assert rep["all_clear"]
+    for f in rep["files"]:
+        md, jl = sorted(f["context"], key=lambda p: p.endswith(".jsonl"))
+        text = Path(md).read_text()
+        assert "synthetic twin" in text and "**Columns**" in text
+        chunks = [_json.loads(l) for l in Path(jl).read_text().splitlines()]
+        assert any(c["type"] == "row" for c in chunks) and all(c["text"] and c["id"] for c in chunks)
+        blob = (text + Path(jl).read_text()).lower()
+        for secret in ("northwind", "lantern", "harbor media", "macon", "quiet orchard", "418207"):
+            assert secret not in blob, secret
+    ppv = Path([c for c in rep["files"][0]["context"] if c.endswith(".md")][0]).read_text()
+    assert "Revenue = Number of Buys × Sale Price" in ppv

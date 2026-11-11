@@ -21,11 +21,13 @@ def _twin(args) -> int:
         tmpl = f"template '{fj.template_name}' ({fj.template_score:.0%})" if fj.template else "new layout"
         print(f"• {fj.doc.name}\n    {c.get('number', 0)} numbers, {c.get('name', 0) + c.get('id', 0)} names/IDs, "
               f"{c.get('review', 0)} auto-masked for review · {tmpl}")
-    rep = job.export(out, save_learning=not args.no_learn)
+    rep = job.export(out, save_learning=not args.no_learn, context=not args.no_context)
     print()
     for f in rep["files"]:
         status = "0 leaks" if f["leak"]["ok"] else f"{f['leak']['leak_count']} LEAKS - do not share"
         print(f"  {f['twin_name']}  ·  {status}  ·  risk {f['risk']['level']}")
+        for c in f.get("context", []):
+            print(f"    + {Path(c).name}")
     print(f"\nSaved to {rep['out_dir']}\nPrivate key: {rep['key_path']}  (never share this file)")
     job.cleanup()
     return 0 if rep["all_clear"] else 2
@@ -72,6 +74,7 @@ def main(argv=None) -> int:
     t.add_argument("--no-price-points", action="store_true", help="do not round prices to .99 points")
     t.add_argument("--no-stable", action="store_true", help="new hidden factors every time (trends across months not comparable)")
     t.add_argument("--no-learn", action="store_true", help="do not save templates or names to your library")
+    t.add_argument("--no-context", action="store_true", help="skip the AI-ready context doc and RAG chunks")
     t.set_defaults(fn=_twin)
 
     r = sub.add_parser("restore", help="turn an AI answer about the twin back into real names")

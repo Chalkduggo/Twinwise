@@ -89,6 +89,15 @@ def leak_test(ft: FileTwin, twin_path: Path) -> LeakReport:
                 break
     rep.checked_values += len(secrets)
 
+    # file and sheet names must not keep any word of a replaced name ("harbor_media_statement.csv")
+    from .twin import name_words
+    words = name_words(ft)
+    for where, text in strings:
+        if where in ("file name", "sheet name"):
+            for w in re.findall(r"[A-Za-z]{3,}", text):
+                if w.lower() in words and not any(w.lower() in f for f in fakes_lower):
+                    rep.leaks.append({"where": where, "value": w, "type": "name word"})
+
     # numbers: the masked cells must not still hold their real value
     twin_vals = {}
     if twin_path.suffix.lower() in (".xlsx", ".xlsm"):
@@ -156,3 +165,37 @@ def risk_check(ft: FileTwin) -> dict:
     level = "high" if any(w["level"] == "high" for w in warnings) else (
         "medium" if sum(w["level"] == "medium" for w in warnings) >= 2 else "low")
     return {"level": level, "warnings": warnings}
+
+
+def leak_test_files(ft: FileTwin, paths: list[Path]) -> LeakReport:
+    """Search extra outputs (context doc, chunks) for every value that was replaced."""
+    rep = LeakReport()
+    secrets = {str(i["real"]).strip() for i in ft.names.values()} | set(ft.ids.values())
+    secrets = {s for s in secrets if len(re.sub(r"\W", "", s)) >= 3}
+    fakes_lower = {f.lower() for f in ft.names} | {f.lower() for f in ft.ids}
+    for p in paths:
+        text = p.read_text(encoding="utf-8").lower()
+        for s in secrets:
+            sl = s.lower()
+            pat = re.compile(r"(?<![a-z0-9])" + re.escape(sl) + r"(?![a-z0-9])")
+            for m in pat.finditer(text):
+                # a hit inside a fake label is fine
+                window = text[max(0, m.start() - 30): m.end() + 30]
+                if any(sl in f and f in window for f in fakes_lower):
+                    continue
+                rep.leaks.append({"where": p.name, "value": s, "type": "text"})
+                break
+        rep.checked_values += len(secrets)
+    # real numbers must not appear: check every distinctive real value that was changed
+    reals = {round(n["real"], 2) for n in ft.numbers if abs(n["real"]) >= 100 and not n.get("computed")}
+    fakes = {round(float(n["fake"]), 2) for n in ft.numbers}
+    for p in paths:
+        text = p.read_text(encoding="utf-8")
+        for tok in re.findall(r"-?\d[\d,]*\.?\d*", text):
+            try:
+                v = round(float(tok.replace(",", "")), 2)
+            except ValueError:
+                continue
+            if v in reals and v not in fakes:
+                rep.coincidences.append({"where": p.name, "value": v})
+    return rep
