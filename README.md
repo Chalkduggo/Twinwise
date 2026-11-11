@@ -6,6 +6,10 @@ Same layout. Fake names, IDs and numbers. Totals still add up. Runs entirely on 
 
 ![Twinwise review screen](docs/screenshots/02-review.png)
 
+
+https://github.com/user-attachments/assets/d35ff26e-51a1-4ccc-b39a-2bd4153dbecb
+
+
 <p align="center">🎬 <a href="docs/Twinwise_User_Guide.mp4"><b>Watch the 98-second user guide</b></a> · 📘 <a href="docs/USER_GUIDE.md"><b>User guide</b></a> · 📕 <a href="docs/USER_MANUAL.md"><b>User manual</b></a> · ⬇️ <a href="https://github.com/Chalkduggo/Twinwise/releases/latest"><b>Download for Windows · macOS · Linux</b></a></p>
 
 ## The problem
