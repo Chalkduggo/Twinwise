@@ -1,0 +1,20 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+
+# never commit real data or keys
+*_TWIN.*
+twin-key_*.json
+twin-report_*.json
+/data/
+/private/
+*.xlsx
+*.xlsm
+*.csv
+*.zip
+!docs/**
