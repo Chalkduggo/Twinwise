@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.1 — stable release of 0.2
+
+- Everything in 0.2.0: AI-ready context (`_CONTEXT.md` data card and `_chunks.jsonl` for RAG), Windows / macOS / Linux apps, safer file names, smarter learning
+- Fixed: tests now read files as UTF-8, so the Windows build passes
+- Packaging updated to the current licence format (no more build warnings)
+- Pre-releases (tags like `v0.3.0-beta.1`) now stay marked as pre-release when the apps are attached
+
 ## 0.2.0 — AI context and all platforms
 
 - **AI-ready context**: every twin now comes with `_CONTEXT.md` (a data card: what each column means, formulas in plain words, totals, summary figures) and `_chunks.jsonl` (overview, column, totals and per-row chunks with metadata for RAG / vector databases). Both are built from twin values only and pass the same leak test.
