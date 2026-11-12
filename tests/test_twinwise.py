@@ -204,7 +204,6 @@ def test_ai_context_files(home, demo, tmp_path):
     assert rep["all_clear"]
     for f in rep["files"]:
         md, jl = sorted(f["context"], key=lambda p: p.endswith(".jsonl"))
-<<<<<<< Updated upstream
         text = Path(md).read_text(encoding="utf-8")
         assert "synthetic twin" in text and "**Columns**" in text
         chunks = [_json.loads(l) for l in Path(jl).read_text(encoding="utf-8").splitlines()]
@@ -413,14 +412,3 @@ def test_server_lock_and_unlock(home, demo):
     assert c.get("/api/library").status_code == 200
     assert c.post("/api/security", json={"action": "off", "current": "wrong one"}).status_code == 401
     assert c.post("/api/security", json={"action": "off", "current": "a long password"}).json()["protected"] is False
-=======
-        text = Path(md).read_text()
-        assert "synthetic twin" in text and "**Columns**" in text
-        chunks = [_json.loads(l) for l in Path(jl).read_text().splitlines()]
-        assert any(c["type"] == "row" for c in chunks) and all(c["text"] and c["id"] for c in chunks)
-        blob = (text + Path(jl).read_text()).lower()
-        for secret in ("northwind", "lantern", "harbor media", "macon", "quiet orchard", "418207"):
-            assert secret not in blob, secret
-    ppv = Path([c for c in rep["files"][0]["context"] if c.endswith(".md")][0]).read_text()
-    assert "Revenue = Number of Buys × Sale Price" in ppv
->>>>>>> Stashed changes

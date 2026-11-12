@@ -1,6 +1,5 @@
 # Changelog
 
-<<<<<<< Updated upstream
 ## 0.3.0 — security release
 
 **Upgrade if you use Excel files with pivot tables, charts, images or logos.** Earlier versions masked the cells but left these parts in the twin, and the safety check did not look inside them. Twins made with 0.2.1 or earlier from such files should be re-made and the old ones not shared.
@@ -22,8 +21,6 @@
 - Packaging updated to the current licence format (no more build warnings)
 - Pre-releases (tags like `v0.3.0-beta.1`) now stay marked as pre-release when the apps are attached
 
-=======
->>>>>>> Stashed changes
 ## 0.2.0 — AI context and all platforms
 
 - **AI-ready context**: every twin now comes with `_CONTEXT.md` (a data card: what each column means, formulas in plain words, totals, summary figures) and `_chunks.jsonl` (overview, column, totals and per-row chunks with metadata for RAG / vector databases). Both are built from twin values only and pass the same leak test.

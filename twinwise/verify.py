@@ -105,12 +105,9 @@ def leak_test(ft: FileTwin, twin_path: Path) -> LeakReport:
                 if w.lower() in words and not any(w.lower() in f for f in fakes_lower):
                     rep.leaks.append({"where": where, "value": w, "type": "name word"})
 
-<<<<<<< Updated upstream
     if twin_path.suffix.lower() in (".xlsx", ".xlsm"):
         _scan_package(twin_path, secrets, fakes_lower, rep)
 
-=======
->>>>>>> Stashed changes
     # numbers: the masked cells must not still hold their real value
     twin_vals = {}
     if twin_path.suffix.lower() in (".xlsx", ".xlsm"):

@@ -6,19 +6,7 @@ Same layout. Fake names, IDs and numbers. Totals still add up. Runs entirely on 
 
 ![Twinwise review screen](docs/screenshots/02-review.png)
 
-<<<<<<< Updated upstream
 <p align="center">🎬 <a href="docs/Twinwise_User_Guide.mp4"><b>Watch the 98-second user guide</b></a> · 📘 <a href="docs/USER_GUIDE.md"><b>User guide</b></a> · 📕 <a href="docs/USER_MANUAL.md"><b>User manual</b></a> · 🛡️ <a href="docs/THREAT_MODEL.md"><b>Threat model</b></a> · ⬇️ <a href="https://github.com/Chalkduggo/Twinwise/releases/latest"><b>Download for Windows · macOS · Linux</b></a></p>
-=======
-<<<<<<< HEAD
-<p align="center">🎬 <a href="docs/Twinwise_User_Guide.mp4"><b>Watch the 98-second user guide</b></a> · 📘 <a href="docs/USER_GUIDE.md"><b>User guide</b></a> · 📕 <a href="docs/USER_MANUAL.md"><b>User manual</b></a> · ⬇️ <a href="https://github.com/Chalkduggo/Twinwise/releases/latest"><b>Download for Windows · macOS · Linux</b></a></p>
-=======
-
-https://github.com/user-attachments/assets/1d2ba89a-aa02-4507-b86a-b07431242694
-
-
-<p align="center">🎬 <a href="docs/Twinwise_User_Guide.mp4"><b>Watch the 98-second user guide</b></a> · 📘 <a href="docs/USER_GUIDE.md"><b>Read the user guide</b></a> · ⬇️ <a href="https://github.com/Chalkduggo/Twinwise/releases/latest"><b>Download for Windows</b></a></p>
->>>>>>> 2a99b7b0a06378414df245e53c0abe9c1c571906
->>>>>>> Stashed changes
 
 ## The problem
 
@@ -173,11 +161,7 @@ Planned paid add-ons (separate, optional):
 
 ## Building the apps
 
-<<<<<<< Updated upstream
 Push a tag like `v0.3.0`. `.github/workflows/release.yml` runs the tests on Windows, macOS and Linux, builds a single-file app on each with PyInstaller, starts it as a smoke test, and attaches all three downloads to the release.
-=======
-Push a tag like `v0.2.0`. `.github/workflows/release.yml` runs the tests on Windows, macOS and Linux, builds a single-file app on each with PyInstaller, starts it as a smoke test, and attaches all three downloads to the release.
->>>>>>> Stashed changes
 
 ## Development
 
