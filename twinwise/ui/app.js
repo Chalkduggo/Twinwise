@@ -22,7 +22,7 @@ const ICONS = {
   prev: '<path d="M15 6l-6 6 6 6"/>',
 };
 const ic = (n, s = 18, c = "currentColor", w = 1.8) =>
-  `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${ICONS[n]}</svg>`;
+  `<svg aria-hidden="true" focusable="false" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${ICONS[n]}</svg>`;
 
 const S = {
   page: "twin", step: "upload", job: null, file: 0, sheet: 0, view: "plan", grid: null,
@@ -51,6 +51,7 @@ async function api(path, opts = {}) {
 function toast(msg, err = false) {
   const t = document.createElement("div");
   t.className = "toast" + (err ? " err" : "");
+  if (err) t.setAttribute("role", "alert");
   t.textContent = msg;
   $("#toasts").appendChild(t);
   setTimeout(() => t.remove(), err ? 6500 : 3200);
@@ -61,11 +62,23 @@ function navTo(page) {
   location.hash = "#/" + page;
 }
 window.addEventListener("hashchange", route);
+const TITLES = { twin: "Create a twin", templates: "Templates", names: "Name library", safe: "Safe words", restore: "Restore AI answer", history: "History", security: "Security" };
+let routed = false;
 function route() {
   const p = (location.hash.replace("#/", "") || "twin").split("?")[0];
   S.page = ["twin", "templates", "names", "safe", "restore", "history", "security"].includes(p) ? p : "twin";
+  document.title = `${TITLES[S.page]} · Twinwise`;
   if (!S.locked && (S.page !== "twin" || !S.lib)) loadLib();
   render();
+  // after the first load, move focus to the new page heading so keyboard and screen-reader users land on it
+  if (routed) S._focusH = true;
+  routed = true;
+  focusHeading();
+}
+function focusHeading() {
+  // the page may still be loading; render() calls this again once the heading exists
+  const h = S._focusH && document.querySelector("#main h1");
+  if (h) { S._focusH = false; h.setAttribute("tabindex", "-1"); h.focus({ preventScroll: true }); }
 }
 
 async function loadStatus() {
@@ -93,14 +106,14 @@ function renderSide() {
   ];
   const items2 = [["restore", "undo", "Restore AI answer"], ["history", "clock", "History", L.history.length]];
   const items3 = [["security", "lock", "Security", S.protected ? "On" : "Off"]];
-  const ni = (x) => `<div class="ni ${S.page === x[0] ? "on" : ""}" data-nav="${x[0]}">${ic(x[1])}${x[2]}${x[3] !== undefined ? `<span class="c">${x[3]}</span>` : ""}</div>`;
+  const ni = (x) => `<a class="ni ${S.page === x[0] ? "on" : ""}" href="#/${x[0]}"${S.page === x[0] ? ' aria-current="page"' : ""}>${ic(x[1])}${x[2]}${x[3] !== undefined ? `<span class="c">${x[3]}</span>` : ""}</a>`;
   const month = new Date().toISOString().slice(0, 7);
   const thisMonth = L.history.filter((h) => (h.time || "").startsWith(month));
   const nfiles = thisMonth.reduce((a, h) => a + (h.files || []).length, 0);
   $("#side").innerHTML = `<div class="sec">Workspace</div>${items.map(ni).join("")}
     <div class="sec">After the AI</div>${items2.map(ni).join("")}
     <div class="sec">Settings</div>${items3.map(ni).join("")}
-    <div class="bot"><b>This month</b>${nfiles} twin${nfiles === 1 ? "" : "s"} created · ${thisMonth.reduce((a, h) => a + (h.files || []).reduce((b, f) => b + (f.leaks || 0), 0), 0)} leaks<br><span style="color:var(--faint)" title="${esc(L.home || "")}">Library saved on this computer</span></div>`;
+    <div class="bot"><b>This month</b>${nfiles} twin${nfiles === 1 ? "" : "s"} created · ${thisMonth.reduce((a, h) => a + (h.files || []).reduce((b, f) => b + (f.leaks || 0), 0), 0)} leaks<br><span style="color:var(--muted)" title="${esc(L.home || "")}">Library saved on this computer</span></div>`;
 }
 document.addEventListener("click", (e) => {
   const n = e.target.closest("[data-nav]");
@@ -108,12 +121,24 @@ document.addEventListener("click", (e) => {
 });
 
 /* ---------------- render ---------------- */
+function focusKey(el) {
+  if (!el || el === document.body || !el.closest("#main, #side")) return null;
+  if (el.id) return `#${el.id}`;
+  if (el.tagName === "H1") return "#main h1";
+  for (const a of el.getAttributeNames()) if (a.startsWith("data-")) return `${el.tagName.toLowerCase()}[${a}="${CSS.escape(el.getAttribute(a))}"]`;
+  return null;
+}
 function render() {
+  const key = focusKey(document.activeElement);
   renderSide();
+  const on = document.querySelector("#side .ni.on"), side = $("#side");
+  if (on && side.scrollWidth > side.clientWidth) side.scrollLeft = on.offsetLeft - 12;
   const m = $("#main");
   const pages = { twin: renderTwin, templates: renderTemplates, names: renderNames, safe: renderSafe, restore: renderRestore, history: renderHistory, security: renderSecurity };
   m.innerHTML = S.locked ? renderUnlock() : pages[S.page]();
   afterRender();
+  if (key) { const el = document.querySelector(key); if (el) { if (key === "#main h1") el.setAttribute("tabindex", "-1"); el.focus({ preventScroll: true }); } }
+  focusHeading();
 }
 
 function renderUnlock() {
@@ -150,7 +175,7 @@ function renderSecurity() {
 
 function stepper(cur) {
   const s = ["Upload", "Review", "Verify", "Export"];
-  return `<div class="steps">${s.map((x, i) => `<div class="st ${i < cur ? "done" : i === cur ? "cur" : ""}"><span class="d">${i < cur ? ic("check", 12, "#fff", 3) : i + 1}</span>${x}${i < s.length - 1 ? '<span class="ln"></span>' : ""}</div>`).join("")}</div>`;
+  return `<div class="steps" role="list" aria-label="Progress">${s.map((x, i) => `<div role="listitem" class="st ${i < cur ? "done" : i === cur ? "cur" : ""}"><span class="d" aria-hidden="true">${i < cur ? ic("check", 12, "#fff", 3) : i + 1}</span><span class="sl">${x}</span>${i === cur ? '<span class="sr-only"> (current step)</span>' : i < cur ? '<span class="sr-only"> (done)</span>' : ""}${i < s.length - 1 ? '<span class="ln"></span>' : ""}</div>`).join("")}</div>`;
 }
 
 function renderTwin() {
@@ -167,11 +192,11 @@ function renderUpload() {
   <div class="sub">A twin has the same layout as your file, with names, IDs and numbers replaced — safe to give to any AI tool.</div>
   ${stepper(0)}
   <label class="drop" id="drop">
-    <input type="file" id="fileIn" multiple accept=".xlsx,.xlsm,.csv,.tsv,.zip" hidden>
+    <input type="file" id="fileIn" class="sr-only" multiple accept=".xlsx,.xlsm,.csv,.tsv,.zip" aria-label="Choose spreadsheet files">
     ${S.busy ? `<div class="spinner"></div><div style="font-size:14px;color:var(--muted)">Reading your files…</div>` : `
     <div class="ic">${ic("up", 20, "#475467")}</div>
     <div style="font-size:14px"><b style="color:var(--pri)">Click to choose files</b> <span style="color:var(--muted)">or drag and drop</span></div>
-    <div style="font-size:12.5px;color:var(--faint)">Excel (.xlsx), CSV or a ZIP of them · files never leave this computer</div>`}
+    <div style="font-size:12.5px;color:var(--muted)">Excel (.xlsx), CSV or a ZIP of them · files never leave this computer</div>`}
   </label>
   <div class="points">
     <div class="card point"><b>1 · Automatic first pass</b><span>Finds numbers, names, IDs, places and totals. Reuses what it learned from your earlier files.</span></div>
@@ -189,24 +214,25 @@ function renderReview() {
   const rc = reviewCount();
   return `<div class="crumb">Workspace <span>/</span> Create a twin <span>/</span> <b>Review</b></div>
   <div class="ph"><h1><span class="t" title="${esc(f.name)}">${esc(f.name)}</span>${rc ? `<span class="chip r">${rc} to review</span>` : `<span class="chip g">Nothing to review</span>`}</h1>
-    <div class="actions"><div class="toggle" id="viewT">${["plan", "original", "twin"].map((v) => `<button data-view="${v}" class="${S.view === v ? "on" : ""}">${v === "plan" ? "Plan" : v === "original" ? "Original" : "Twin"}</button>`).join("")}</div>
+    <div class="actions"><div class="toggle" id="viewT" role="group" aria-label="Show">${["plan", "original", "twin"].map((v) => `<button data-view="${v}" aria-pressed="${S.view === v}" class="${S.view === v ? "on" : ""}">${v === "plan" ? "Plan" : v === "original" ? "Original" : "Twin"}</button>`).join("")}</div>
     <button class="btn" data-act="restart">Start over</button><button class="btn p" data-act="verify">Continue</button></div></div>
   ${stepper(1)}
-  ${job.files.length > 1 ? `<div class="tabs-row">${job.files.map((x, i) => `<button data-file="${i}" class="${i === S.file ? "on" : ""}">${esc(x.name)} ${x.counts.review ? `<span class="chip r" style="margin-left:6px">${x.counts.review}</span>` : ""}</button>`).join("")}</div>` : ""}
+  ${job.files.length > 1 ? `<div class="tabs-row">${job.files.map((x, i) => `<button data-file="${i}" aria-pressed="${i === S.file}" class="${i === S.file ? "on" : ""}">${esc(x.name)} ${x.counts.review ? `<span class="chip r" style="margin-left:6px">${x.counts.review}</span>` : ""}</button>`).join("")}</div>` : ""}
   <div class="toolbar">
     <div class="leg"><span><i style="background:var(--num-mk)"></i>Number · changed</span><span><i style="background:var(--name-mk)"></i>Name / ID · replaced</span><span><i style="background:var(--date-mk)"></i>Date · kept</span><span><i style="background:#fff;box-shadow:inset 0 0 0 1px #D0D5DD"></i>Text · kept</span><span><i style="background:var(--ask-mk)"></i>Needs your decision</span></div>
     <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
-      ${f.sheets.length > 1 ? `<div class="sheettabs">${f.sheets.map((s, i) => `<button data-sheet="${i}" class="${i === S.sheet ? "on" : ""}">${esc(s.name)}${s.hidden ? " (hidden)" : ""}</button>`).join("")}</div>` : ""}
+      ${f.sheets.length > 1 ? `<div class="sheettabs">${f.sheets.map((s, i) => `<button data-sheet="${i}" aria-pressed="${i === S.sheet}" class="${i === S.sheet ? "on" : ""}">${esc(s.name)}${s.hidden ? " (hidden)" : ""}</button>`).join("")}</div>` : ""}
       ${sh.rows > PAGE ? `<span style="font-size:12.5px;color:var(--muted)">Rows <b style="color:var(--ink2)">${(S.offset + 1).toLocaleString()}–${Math.min(S.offset + PAGE, sh.rows).toLocaleString()}</b> of ${sh.rows.toLocaleString()}</span>
-        <button class="btn sm" data-act="prevPage" title="Previous rows" ${S.offset <= 0 ? "disabled" : ""}>${ic("prev", 14)}</button>
-        <button class="btn sm" data-act="nextPage" title="Next rows" ${S.offset + PAGE >= sh.rows ? "disabled" : ""}>${ic("next", 14)}</button>` : ""}
+        <button class="btn sm" data-act="prevPage" title="Previous rows" aria-label="Previous rows" ${S.offset <= 0 ? "disabled" : ""}>${ic("prev", 14)}</button>
+        <button class="btn sm" data-act="nextPage" title="Next rows" aria-label="Next rows" ${S.offset + PAGE >= sh.rows ? "disabled" : ""}>${ic("next", 14)}</button>` : ""}
       ${rc ? `<button class="btn sm" data-act="nextReview">${ic("next", 14)}Next to review</button>` : ""}
     </div>
   </div>
   <div class="work">
-    <div class="card gridwrap" id="gridwrap">${S.grid ? gridHTML() : `<div class="loading"><div class="spinner"></div>Loading sheet…</div>`}</div>
+    <div class="card gridwrap" id="gridwrap" tabindex="0" role="region" aria-label="Sheet preview. Use the arrow keys to move between cells, Enter for the column." aria-describedby="selDesc">${S.grid ? gridHTML() : `<div class="loading"><div class="spinner"></div>Loading sheet…</div>`}</div>
     <div class="card insp">${inspectorHTML()}</div>
   </div>
+  <div class="sr-only" id="selDesc" aria-live="polite">${S.sel ? (S.sel.type === "col" ? `Column ${colLetter(S.sel.c)} selected` : `Cell ${colLetter(S.sel.c)}${S.sel.r} selected`) : ""}</div>
   <div class="status"><span>${esc(sh.name)} · <b>${sh.rows}</b> rows · ${sh.cols} columns</span>
     <span style="color:var(--num-fg)"><b style="color:inherit">${f.counts.number || 0}</b> numbers</span>
     <span style="color:var(--name-fg)"><b style="color:inherit">${(f.counts.name || 0) + (f.counts.id || 0)}</b> names & IDs</span>
@@ -228,8 +254,8 @@ function gridHTML() {
   for (const [r1, c1, r2, c2] of g.merged || []) {
     if (r1 === r2 && c2 > c1) { span[`${r1},${c1}`] = c2 - c1 + 1; for (let c = c1 + 1; c <= c2; c++) covered.add(`${r1},${c}`); }
   }
-  let h = `<table class="g v-${S.view}"><thead><tr><th class="rn"></th>${cols.map((c) => `<th data-col="${c.index}" class="${selCol === c.index ? "colsel" : ""}" title="${esc(c.header)}">${c.letter}</th>`).join("")}</tr>
-    <tr class="ty"><th class="rn"></th>${cols.map((c) => `<th data-col="${c.index}" class="${selCol === c.index ? "colsel" : ""}">${c.role === "empty" ? "" : `<span class="tt"><i style="background:${c.action === "keep" ? "#D0D5DD" : ROLE_COLOR[c.role] || "#D0D5DD"}"></i>${esc(c.label)}</span>`}</th>`).join("")}</tr></thead><tbody>`;
+  let h = `<table class="g v-${S.view}"><thead><tr><th class="rn"><span class="sr-only">Row</span></th>${cols.map((c) => `<th data-col="${c.index}" class="${selCol === c.index ? "colsel" : ""}" title="${esc(c.header)}">${c.letter}</th>`).join("")}</tr>
+    <tr class="ty"><th class="rn"><span class="sr-only">Row</span></th>${cols.map((c) => `<th data-col="${c.index}" class="${selCol === c.index ? "colsel" : ""}">${c.role === "empty" ? '<span class="sr-only">Empty column</span>' : `<span class="tt"><i style="background:${c.action === "keep" ? "#D0D5DD" : ROLE_COLOR[c.role] || "#D0D5DD"}"></i>${esc(c.label)}</span>`}</th>`).join("")}</tr></thead><tbody>`;
   for (const row of g.rows) {
     const map = {};
     for (const c of row.cells) map[c.c] = c;
@@ -261,7 +287,7 @@ function colLetter(c) { return S.grid.columns[c - 1].letter; }
 
 function inspectorHTML() {
   const tabs = ["summary", "cell", "column"];
-  const head = `<div class="tabs">${tabs.map((t) => `<button data-tab="${t}" class="${S.tab === t ? "on" : ""}">${t[0].toUpperCase() + t.slice(1)}</button>`).join("")}</div>`;
+  const head = `<div class="tabs">${tabs.map((t) => `<button data-tab="${t}" aria-pressed="${S.tab === t}" class="${S.tab === t ? "on" : ""}">${t[0].toUpperCase() + t.slice(1)}</button>`).join("")}</div>`;
   let body = "";
   if (S.tab === "cell") body = cellPanel();
   else if (S.tab === "column") body = columnPanel();
@@ -298,6 +324,7 @@ function cellPanel() {
   <div class="field"><label>In the twin</label><div class="valbox fake">${esc(d.t)}</div></div>
   ${d.n ? `<div class="note">${esc(d.n)}</div>` : ""}
   ${d.s === "number" ? `<div class="note b">Numbers are handled by column. Use the Column tab to keep or change how this column is treated.</div>` : ""}
+  <button class="btn sm" style="margin-top:12px" data-act="cellCol">Column ${colLetter(S.sel.c)} settings</button>
   ${canDecide && d.s !== "number" ? `<div class="field"><label>Your decision</label>
     <button class="opt ${!decided || decided === "auto" ? "on" : ""}" data-cell="auto"><span class="rad"></span><span><b>Automatic</b><small>Replace the names and codes Twinwise found</small></span></button>
     <button class="opt ${decided === "keep" ? "on" : ""}" data-cell="keep"><span class="rad"></span><span><b>Keep as is</b><small>Adds the new words to your safe-word list</small></span></button>
@@ -332,7 +359,7 @@ function renderVerify() {
   <div class="card" style="margin-top:16px;padding:14px 16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap">
     <div style="width:36px;height:36px;border-radius:8px;background:var(--pri-soft);display:grid;place-items:center;color:var(--pri);flex:none">${ic("lock", 18)}</div>
     <div style="flex:1;min-width:240px"><b>Protect the key file with a password</b><div style="font-size:12.5px;color:var(--muted);margin-top:2px;line-height:1.5">The key file holds the real names and numbers. ${v.library_protected ? "Leave this empty to use your library password." : "Without a password it is saved as a readable file."}</div></div>
-    <input class="inp" type="password" id="keyPw" style="width:260px" autocomplete="new-password" placeholder="${v.library_protected ? "Library password (default)" : `At least ${S.minPw} characters`}" value="${esc(S.keyPw)}">
+    <input class="inp" type="password" id="keyPw" aria-label="Key file password" style="width:260px;max-width:100%" autocomplete="new-password" placeholder="${v.library_protected ? "Library password (default)" : `At least ${S.minPw} characters`}" value="${esc(S.keyPw)}">
   </div>
   ${v.files.map((f) => {
     const L = f.leak, R = f.risk;
@@ -396,7 +423,7 @@ function renderSafe() {
   const L = S.lib;
   if (!L) return `<div class="loading"><div class="spinner"></div></div>`;
   return pageHead("Safe words", "Words and phrases that are never masked — for example column headings or public terms used in your reports.") +
-    `<div class="card" style="margin-top:16px;padding:14px 16px;display:flex;gap:10px"><input class="inp" id="safeIn" placeholder="Add a word or phrase, e.g. Bad Debt"><button class="btn p" data-act="addSafe">Add</button></div>
+    `<div class="card" style="margin-top:16px;padding:14px 16px;display:flex;gap:10px"><input class="inp" id="safeIn" aria-label="Safe word or phrase" placeholder="Add a word or phrase, e.g. Bad Debt"><button class="btn p" data-act="addSafe">Add</button></div>
     <div class="card" style="margin-top:16px">${L.safe_words.length ? `<div class="wordchips">${L.safe_words.map((w) => `<span>${esc(w)}<button title="Remove" data-unsafe="${esc(w)}">×</button></span>`).join("")}</div>` :
     `<div class="empty">Your own safe words appear here. Twinwise already knows common business words like Revenue, Total and Subscribers.</div>`}</div>`;
 }
@@ -412,7 +439,7 @@ function renderRestore() {
   const R = S.restore;
   return pageHead("Restore AI answer", "Paste what the AI said about the twin. With the key file, Twinwise swaps the fake names and numbers back to the real ones — on this computer.", "After the AI") +
   `<div class="cols2"><div class="card" style="flex:1;padding:16px;min-width:0">
-    <div class="field" style="margin-top:0"><label>1 · Key file</label><label class="btn" style="width:100%">${ic("up", 16)}${R.keyName ? esc(R.keyName) : "Choose twin-key_….json"}<input type="file" id="keyIn" accept=".json" hidden></label></div>
+    <div class="field" style="margin-top:0"><label>1 · Key file</label><label class="btn" style="width:100%">${ic("up", 16)}${R.keyName ? esc(R.keyName) : "Choose twin-key_….json"}<input type="file" id="keyIn" class="sr-only" accept=".json"></label></div>
     ${R.key && R.key.format === "twinwise-encrypted/1" ? `<div class="field"><label>Key file password</label><input class="inp" type="password" id="rsPw" autocomplete="current-password" value="${esc(R.password)}" placeholder="${S.protected ? "Leave empty to use your library password" : "Password used when the key was exported"}"></div>` : ""}
     <div class="field"><label>2 · AI answer</label><textarea class="inp" id="rsText" rows="12" placeholder="e.g. Channel A had 1,204 buys in Region 3, up 8% on last month…">${esc(R.text)}</textarea></div>
     <div style="margin-top:12px;display:flex;justify-content:flex-end"><button class="btn p" data-act="doRestore">Restore real names</button></div></div>
@@ -423,7 +450,20 @@ function renderRestore() {
 }
 
 /* ---------------- events ---------------- */
+let uid = 0;
+function linkLabels() {
+  // every label points at its control, so screen readers announce the field name
+  document.querySelectorAll("#main label:not([for])").forEach((l) => {
+    if (l.querySelector("input,select,textarea")) return;
+    const c = l.nextElementSibling;
+    if (!c || !/^(INPUT|SELECT|TEXTAREA)$/.test(c.tagName)) return;
+    if (!c.id) c.id = `f${++uid}`;
+    l.htmlFor = c.id;
+  });
+}
 function afterRender() {
+  linkLabels();
+  document.querySelectorAll("#main button.opt").forEach((b) => b.setAttribute("aria-pressed", b.classList.contains("on")));
   const drop = $("#drop");
   if (drop) {
     const fi = $("#fileIn");
@@ -523,6 +563,7 @@ async function action(a) {
   else if (a === "openFolder") { await api("/api/open-folder", { json: { path: S.exp.out_dir } }); }
   else if (a === "copyPreview") { await navigator.clipboard.writeText(S.preview ? S.preview.text : ""); toast("Copied"); }
   else if (a === "nextReview") await nextReview();
+  else if (a === "cellCol") { S.sel = { type: "col", c: S.sel.c }; S.tab = "column"; render(); }
   else if (a === "addName") {
     const real = $("#nmReal").value.trim(); if (!real) return toast("Enter the real name", true);
     await api("/api/library/name", { json: { real, category: $("#nmCat").value, fake: $("#nmFake").value.trim() } }); await loadLib(); toast("Name added");
@@ -579,6 +620,29 @@ async function nextReview() {
   const td = document.querySelector(`td[data-r="${n.r}"][data-c="${n.c}"]`);
   if (td) td.scrollIntoView({ block: "center", inline: "center" });
 }
+
+/* keyboard: arrow keys move through the sheet, Enter opens the column */
+document.addEventListener("keydown", (e) => {
+  if (e.target.id !== "gridwrap" || !S.grid || e.altKey || e.ctrlKey || e.metaKey) return;
+  const rows = S.grid.rows.map((x) => x.r), cols = S.grid.columns.map((x) => x.index);
+  if (!rows.length || !cols.length) return;
+  const cur = S.sel || { type: "cell", r: rows[0], c: cols[0] };
+  let ri = Math.max(0, rows.indexOf(cur.r)), ci = Math.max(0, cols.indexOf(cur.c));
+  const k = e.key;
+  if (k === "ArrowDown") ri = Math.min(rows.length - 1, ri + 1);
+  else if (k === "ArrowUp") ri = Math.max(0, ri - 1);
+  else if (k === "ArrowRight") ci = Math.min(cols.length - 1, ci + 1);
+  else if (k === "ArrowLeft") ci = Math.max(0, ci - 1);
+  else if (k === "Home") ci = 0;
+  else if (k === "End") ci = cols.length - 1;
+  else if (k === "Enter" && S.sel) { e.preventDefault(); S.sel = { type: "col", c: cur.c }; S.tab = "column"; render(); return; }
+  else return;
+  e.preventDefault();
+  const gw = $("#gridwrap"); S._scroll = [gw.scrollTop, gw.scrollLeft];
+  S.sel = { type: "cell", r: rows[ri], c: cols[ci] }; S.tab = "cell"; render();
+  const td = document.querySelector(`td[data-r="${S.sel.r}"][data-c="${S.sel.c}"]`);
+  if (td) td.scrollIntoView({ block: "nearest", inline: "nearest" });
+});
 
 loadStatus().then(route);
 })();

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.5 — accessibility and small screens
+
+- **Keyboard**: the menu, the file picker, the key-file picker and the sheet now work without a mouse. Arrow keys move through the sheet, Enter opens the column, and the Cell panel has a *Column settings* button
+- **Screen readers**: every field is linked to its label; toggles, tabs and choices announce whether they are selected; the steps bar says which step you are on; errors are announced straight away; each page has its own window title, and focus moves to the page heading when you switch pages
+- **Visible focus ring** on every control, and a *Skip to content* link
+- **Phones and narrow windows**: the menu becomes a row of tabs instead of disappearing, the steps bar and status bar fit, and the sheet no longer overlaps the status bar
+- **Contrast**: small grey labels (menu headings, row numbers, step numbers) are darker so they meet WCAG AA
+- Buttons give a small press response; motion is switched off when your system asks for reduced motion
+- Removed an old duplicate Windows build workflow, so each release has one set of downloads
+- Checked with the axe accessibility checker on every screen: no issues found
+
 ## 0.3.0 — security release
 
 **Upgrade if you use Excel files with pivot tables, charts, images or logos.** Earlier versions masked the cells but left these parts in the twin, and the safety check did not look inside them. Twins made with 0.2.1 or earlier from such files should be re-made and the old ones not shared.

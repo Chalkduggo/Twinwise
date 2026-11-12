@@ -1,6 +1,6 @@
 # Twinwise User Manual
 
-**Version 0.3.0** · Developed and maintained by LoopWise · Created by Suman Mondal
+**Version 0.3.5** · Developed and maintained by LoopWise · Created by Suman Mondal
 
 This manual is the complete reference for Twinwise. For a quick start, see the [User Guide](USER_GUIDE.md) or the 98-second video.
 
@@ -89,7 +89,7 @@ Starting Twinwise opens your browser at `http://127.0.0.1:8765`. A small termina
 | Area | What it does |
 |---|---|
 | **Top bar** | Logo and the *Processing locally* badge |
-| **Left menu** | *Create a twin*, *Templates*, *Name library*, *Safe words*, *Restore AI answer*, *History* |
+| **Left menu** | *Create a twin*, *Templates*, *Name library*, *Safe words*, *Restore AI answer*, *History*, *Security*. On a narrow window or a phone it becomes a row of tabs under the top bar |
 | **Steps bar** | Upload → Review → Verify → Export |
 | **Grid** | Your sheet, colour-coded |
 | **Inspector** (right) | *Summary*, *Cell* and *Column* tabs |
@@ -214,6 +214,20 @@ Column decisions are saved in the template, so next month's file is handled the 
 **Plan** (colours on the original values), **Original** and **Twin**. Switch at the top right.
 
 ![Twin view](screenshots/08-twin.png)
+
+### 8.4 Using the keyboard
+
+Everything in Twinwise works without a mouse.
+
+| Key | What it does |
+|---|---|
+| **Tab** / **Shift+Tab** | Move between buttons, fields and the sheet |
+| **Arrow keys** (sheet focused) | Move from cell to cell; the Cell panel follows |
+| **Home** / **End** | First or last column of the row |
+| **Enter** (sheet focused) | Open the Column panel for the selected cell's column |
+| **Space** or **Enter** on *Click to choose files* | Open the file picker |
+
+The Cell panel also has a **Column … settings** button, so you can reach column decisions from any cell.
 
 ---
 

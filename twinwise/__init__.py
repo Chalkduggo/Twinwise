@@ -2,7 +2,7 @@
 
 Everything runs on your own computer. Nothing is uploaded.
 """
-__version__ = "0.3.0"
+__version__ = "0.3.5"
 
 from .engine import Job  # noqa: E402
 from .keyfile import load_key, restore  # noqa: E402
