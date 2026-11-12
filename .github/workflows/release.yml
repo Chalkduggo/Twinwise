@@ -36,14 +36,22 @@ jobs:
         if: runner.os == 'Windows'
         run: >
           pyinstaller --noconfirm --onefile --name Twinwise --icon assets/twinwise.ico
+<<<<<<< Updated upstream
           --add-data "twinwise/ui;twinwise/ui" --collect-submodules uvicorn --collect-submodules cryptography
+=======
+          --add-data "twinwise/ui;twinwise/ui" --collect-submodules uvicorn
+>>>>>>> Stashed changes
           --hidden-import python_multipart --hidden-import multipart twinwise_launcher.py
 
       - name: Build (macOS / Linux)
         if: runner.os != 'Windows'
         run: >
           pyinstaller --noconfirm --onefile --name Twinwise
+<<<<<<< Updated upstream
           --add-data "twinwise/ui:twinwise/ui" --collect-submodules uvicorn --collect-submodules cryptography
+=======
+          --add-data "twinwise/ui:twinwise/ui" --collect-submodules uvicorn
+>>>>>>> Stashed changes
           --hidden-import python_multipart --hidden-import multipart twinwise_launcher.py
 
       - name: Smoke test (Windows)
@@ -101,5 +109,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ matrix.asset }}
+<<<<<<< Updated upstream
           # tags with a dash (v0.3.0-beta.1, v0.3.0-rc.1) stay marked as pre-release
           prerelease: ${{ contains(github.ref_name, '-') }}
+=======
+>>>>>>> Stashed changes

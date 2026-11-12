@@ -4,7 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "twinwise"
+<<<<<<< Updated upstream
 version = "0.3.0"
+=======
+version = "0.2.0"
+>>>>>>> Stashed changes
 description = "Make a safe twin of business spreadsheets before you use AI. Runs locally."
 readme = "README.md"
 license = "Apache-2.0"

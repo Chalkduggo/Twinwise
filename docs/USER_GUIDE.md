@@ -97,7 +97,11 @@ Warnings such as *small counts* or *kept text you may want to glance at* are the
 You get:
 
 - **The twin** (`…_TWIN.xlsx` / `.csv`). Upload this to ChatGPT, Claude, Copilot or any other AI tool.
+<<<<<<< Updated upstream
 - **The key file** (`twin-key_….json`). **Private.** Never upload or share it. With a password it is stored encrypted.
+=======
+- **The key file** (`twin-key_….json`). **Private.** Never upload or share it.
+>>>>>>> Stashed changes
 - **AI context** (`…_CONTEXT.md`): a data card that explains the twin to an AI. It covers column meanings, formulas, totals and summary figures. Upload it together with the twin for better answers.
 - **RAG chunks** (`…_chunks.jsonl`): ready-made pieces for a RAG / vector-database pipeline, one JSON object per line with `id`, `type`, `text` and `metadata`.
 - A report of the checks (`twin-report_….json`)

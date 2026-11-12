@@ -139,6 +139,7 @@ class Job:
         return tot
 
     # ---------- export ----------
+<<<<<<< Updated upstream
     def export(self, out_dir: Path | str, *, save_learning: bool = True, user: str = "", context: bool = True,
                key_password: str | None = None, write_key: bool = True) -> dict:
         """Write twins, context files, the key file and a report.
@@ -146,6 +147,9 @@ class Job:
         ``key_password`` encrypts the key file. Without one, the library password is used if the library
         is protected; otherwise the key file is written as plain JSON.
         """
+=======
+    def export(self, out_dir: Path | str, *, save_learning: bool = True, user: str = "", context: bool = True) -> dict:
+>>>>>>> Stashed changes
         out_dir = Path(out_dir).expanduser()
         stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -170,11 +174,17 @@ class Job:
                     for x in extras:
                         x.unlink(missing_ok=True)
                     extras = []
+<<<<<<< Updated upstream
             risk = risk_check(fj.twin, self.settings)
             results.append({"original": fj.doc.name, "twin": str(target), "twin_name": target.name,
                             "context": [str(x) for x in extras],
                             "removed": [{"what": HIDDEN_LABELS.get(k, k), "count": n}
                                         for k, n in fj.doc.hidden_parts.items()],
+=======
+            risk = risk_check(fj.twin)
+            results.append({"original": fj.doc.name, "twin": str(target), "twin_name": target.name,
+                            "context": [str(x) for x in extras],
+>>>>>>> Stashed changes
                             "counts": fj.twin.counts(), "leak": leak.to_dict(), "risk": risk,
                             "template": fj.template_name})
         key_path, key_protected = None, False
