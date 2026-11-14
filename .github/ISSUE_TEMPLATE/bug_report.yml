@@ -1,0 +1,42 @@
+name: Bug report
+description: Something doesn't work as described
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Never attach real or confidential files, or twins made from them.** Use made-up data, or describe the layout (column headings, kinds of values).
+        For a security problem, use [private reporting](https://github.com/Chalkduggo/Twinwise/security/advisories/new) instead.
+  - type: input
+    id: version
+    attributes:
+      label: Twinwise version
+      placeholder: "0.3.6 (run: twinwise --version)"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How you run it
+      options: [Windows app, macOS app, Linux app, pip install, From source]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: file
+    attributes:
+      label: The file's layout
+      description: File type, header rows, column headings and kinds of values. No real values.
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Before you submit
+      options:
+        - label: I haven't included any real or confidential data
+          required: true

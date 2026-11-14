@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.6 — PyPI and security basics
+
+- **Install with pip**: `pip install twinwise`. Published to PyPI automatically from each GitHub release, using trusted publishing (no stored passwords or tokens)
+- **Security policy** (`SECURITY.md`) with private vulnerability reporting
+- **Checksums**: every release now includes `SHA256SUMS.txt` so you can check your download is genuine
+- **Automatic checks**: Dependabot watches the libraries Twinwise uses; OpenSSF Scorecard rates how safely the project is run; GitHub workflows now use the least permissions they need
+- Issue forms that remind you never to attach real data
+- README links and images now also work on PyPI
+- No change to masking, the safety check or the app itself
+
 ## 0.3.5 — accessibility and small screens
 
 - **Keyboard**: the menu, the file picker, the key-file picker and the sheet now work without a mouse. Arrow keys move through the sheet, Enter opens the column, and the Cell panel has a *Column settings* button

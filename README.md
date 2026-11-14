@@ -1,16 +1,22 @@
-<p align="center"><img src="twinwise/ui/logo.svg" width="64" alt="Twinwise logo"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/Chalkduggo/Twinwise/main/twinwise/ui/logo.svg" width="64" alt="Twinwise logo"></p>
 
 <h1 align="center">Twinwise</h1>
 <p align="center"><b>Make a safe twin of your business spreadsheets before you use AI.</b><br>
 Same layout. Fake names, IDs and numbers. Totals still add up. Runs entirely on your computer.</p>
+<p align="center">
+<a href="https://pypi.org/project/twinwise/"><img src="https://img.shields.io/pypi/v/twinwise?label=PyPI" alt="PyPI version"></a>
+<a href="https://github.com/Chalkduggo/Twinwise/actions/workflows/tests.yml"><img src="https://github.com/Chalkduggo/Twinwise/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
+<a href="https://scorecard.dev/viewer/?uri=github.com/Chalkduggo/Twinwise"><img src="https://api.scorecard.dev/projects/github.com/Chalkduggo/Twinwise/badge" alt="OpenSSF Scorecard"></a>
+<a href="https://github.com/Chalkduggo/Twinwise/blob/main/LICENSE"><img src="https://img.shields.io/badge/licence-Apache%202.0-blue" alt="Licence: Apache 2.0"></a>
+</p>
 
-![Twinwise review screen](docs/screenshots/02-review.png)
+![Twinwise review screen](https://raw.githubusercontent.com/Chalkduggo/Twinwise/main/docs/screenshots/02-review.png)
 
 
 https://github.com/user-attachments/assets/59911a9c-dcbe-4921-84c3-c62e856f076f
 
 
-<p align="center">🎬 <a href="docs/Twinwise_User_Guide.mp4"><b>Watch the 98-second user guide</b></a> · 📘 <a href="docs/USER_GUIDE.md"><b>User guide</b></a> · 📕 <a href="docs/USER_MANUAL.md"><b>User manual</b></a> · 🛡️ <a href="docs/THREAT_MODEL.md"><b>Threat model</b></a> · ⬇️ <a href="https://github.com/Chalkduggo/Twinwise/releases/latest"><b>Download for Windows · macOS · Linux</b></a></p>
+<p align="center">🎬 <a href="https://github.com/Chalkduggo/Twinwise/blob/main/docs/Twinwise_User_Guide.mp4"><b>Watch the 98-second user guide</b></a> · 📘 <a href="https://github.com/Chalkduggo/Twinwise/blob/main/docs/USER_GUIDE.md"><b>User guide</b></a> · 📕 <a href="https://github.com/Chalkduggo/Twinwise/blob/main/docs/USER_MANUAL.md"><b>User manual</b></a> · 🛡️ <a href="https://github.com/Chalkduggo/Twinwise/blob/main/docs/THREAT_MODEL.md"><b>Threat model</b></a> · ⬇️ <a href="https://github.com/Chalkduggo/Twinwise/releases/latest"><b>Download for Windows · macOS · Linux</b></a></p>
 
 ## The problem
 
@@ -45,7 +51,7 @@ Twinwise **learns**. Your decisions are saved as templates and a name library, s
 
 | Review | Safety check | Export |
 |---|---|---|
-| ![](docs/screenshots/04-cell.png) | ![](docs/screenshots/09-verify.png) | ![](docs/screenshots/10-export.png) |
+| ![](https://raw.githubusercontent.com/Chalkduggo/Twinwise/main/docs/screenshots/04-cell.png) | ![](https://raw.githubusercontent.com/Chalkduggo/Twinwise/main/docs/screenshots/09-verify.png) | ![](https://raw.githubusercontent.com/Chalkduggo/Twinwise/main/docs/screenshots/10-export.png) |
 
 ## Install
 
@@ -59,14 +65,22 @@ Twinwise **learns**. Your decisions are saved as templates and a name library, s
 
 The apps aren't code-signed yet, which is why the operating system asks once. Intel Macs: use the Python install below.
 
-**With Python 3.10 or newer:**
+**With Python 3.10 or newer**, install from PyPI:
+
+```bash
+pip install twinwise
+twinwise ui          # opens http://127.0.0.1:8765 in your browser
+```
+
+Or from source:
 
 ```bash
 git clone https://github.com/Chalkduggo/Twinwise.git
 cd Twinwise
 pip install -e .
-twinwise ui          # opens http://127.0.0.1:8765 in your browser
 ```
+
+**Check your download.** Every release includes `SHA256SUMS.txt`. On Windows run `certutil -hashfile Twinwise-Windows.zip SHA256`, on macOS/Linux `shasum -a 256 <file>`, and compare the result with the line in that file.
 
 From source, double-click **`Start-Twinwise.bat`** (Windows) or run **`./start-twinwise.sh`** (macOS/Linux). Either one creates a private Python environment the first time, then opens the app.
 
@@ -98,7 +112,7 @@ Exit code `2` means the safety check found a leak, so you can use it in scripts.
 
 Hidden factors stay the same from month to month by default, so trends (+8% vs last month) are still meaningful. You can turn this off.
 
-**Row variation** makes it harder to work back from one known figure to the rest of a column. The same row gets the same variation in every column and every month, so ratios inside a row and row-level trends stay true. Rows with nearly equal values may swap order. See the [threat model](docs/THREAT_MODEL.md).
+**Row variation** makes it harder to work back from one known figure to the rest of a column. The same row gets the same variation in every column and every month, so ratios inside a row and row-level trends stay true. Rows with nearly equal values may swap order. See the [threat model](https://github.com/Chalkduggo/Twinwise/blob/main/docs/THREAT_MODEL.md).
 
 No masked number keeps its real value. Small values are nudged so a "1" never stays "1".
 
@@ -129,7 +143,7 @@ By default these are plain text files. **Turn on password protection** (Security
 
 ## Safety model, and its limits
 
-Twinwise does **pseudonymisation**, not anonymisation. A twin is much safer to share than the original, but it is not public data. The full [threat model](docs/THREAT_MODEL.md) explains what is and isn't protected.
+Twinwise does **pseudonymisation**, not anonymisation. A twin is much safer to share than the original, but it is not public data. The full [threat model](https://github.com/Chalkduggo/Twinwise/blob/main/docs/THREAT_MODEL.md) explains what is and isn't protected.
 
 Twinwise is built so that mistakes lean towards **over-masking**. Unknown text is masked and shown to you, not kept.
 
@@ -187,8 +201,12 @@ The code is small and readable:
 | `engine.py` | Jobs, templates, export |
 | `server.py`, `ui/` | Local review screen (no build step) |
 
+## Security
+
+Found a security problem? Please report it privately, not in a public issue. See [SECURITY.md](https://github.com/Chalkduggo/Twinwise/blob/main/SECURITY.md).
+
 ## License
 
-Apache License 2.0. See [LICENSE](LICENSE).
+Apache License 2.0. See [LICENSE](https://github.com/Chalkduggo/Twinwise/blob/main/LICENSE).
 
 Twinwise is developed and maintained by **LoopWise**, created by **Suman Mondal**.
