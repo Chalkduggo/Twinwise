@@ -1,0 +1,35 @@
+name: OpenSSF Scorecard
+
+# Checks how safely the project is run (branch protection, pinned actions,
+# token permissions...) and publishes the score for the README badge.
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 3 * * 1"   # every Monday
+
+permissions: read-all
+
+jobs:
+  analysis:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write   # upload results to the Security tab
+      id-token: write          # publish the score for the badge
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: ossf/scorecard-action@v2.4.4
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scorecard-results
+          path: results.sarif
+          retention-days: 5
+      - uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: results.sarif
